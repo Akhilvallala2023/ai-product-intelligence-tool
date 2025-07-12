@@ -282,6 +282,7 @@ Thumbs.db
 .env.test.local
 .env.production.local
 config.ini
+config.py
 secrets.json
 
 # Logs

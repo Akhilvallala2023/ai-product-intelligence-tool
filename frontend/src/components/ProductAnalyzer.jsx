@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Search, Zap, ShoppingCart, Star, DollarSign } from 'lucide-react';
+import { Upload, X, Search, Zap, Star, DollarSign, Globe, ExternalLink } from 'lucide-react';
 import ResultsDisplay from './ResultsDisplay';
 
 const ProductAnalyzer = () => {
@@ -7,11 +7,11 @@ const ProductAnalyzer = () => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isMatching, setIsMatching] = useState(false);
+  const [isGettingPrices, setIsGettingPrices] = useState(false);
   const [analysisResults, setAnalysisResults] = useState(null);
-  const [matchingResults, setMatchingResults] = useState(null);
+  const [livePriceResults, setLivePriceResults] = useState(null);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('analyze'); // 'analyze' or 'match'
+  const [activeTab, setActiveTab] = useState('analyze'); // 'analyze', 'prices'
   const fileInputRef = useRef(null);
 
   const handleImageUpload = (e) => {
@@ -76,15 +76,17 @@ const ProductAnalyzer = () => {
     }
   };
 
-  const handleFindSimilar = async () => {
+
+
+  const handleGetLivePrices = async () => {
     if (!textInput.trim() && !imageFile) {
       setError('Please provide either a text description or an image.');
       return;
     }
 
-    setIsMatching(true);
+    setIsGettingPrices(true);
     setError(null);
-    setMatchingResults(null);
+    setLivePriceResults(null);
 
     try {
       const formData = new FormData();
@@ -97,12 +99,10 @@ const ProductAnalyzer = () => {
         formData.append('image', imageFile);
       }
 
-      // Add matching parameters
       formData.append('max_results', '10');
-      formData.append('price_weight', '0.3');
-      formData.append('similarity_weight', '0.7');
+      formData.append('include_price_stats', 'true');
 
-      const response = await fetch('/api/match-form', {
+      const response = await fetch('/api/live-prices-form', {
         method: 'POST',
         body: formData,
       });
@@ -110,25 +110,28 @@ const ProductAnalyzer = () => {
       const result = await response.json();
 
       if (result.success) {
-        setMatchingResults(result);
-        setActiveTab('match');
+        console.log('Live prices result:', result);
+        setLivePriceResults(result);
+        setActiveTab('prices');
       } else {
-        setError(result.error_message || 'Product matching failed');
+        setError(result.error_message || 'Live price search failed');
       }
     } catch (err) {
       setError('Network error. Please check your connection and try again.');
-      console.error('Matching error:', err);
+      console.error('Live price error:', err);
     } finally {
-      setIsMatching(false);
+      setIsGettingPrices(false);
     }
   };
+
+
 
   const clearAll = () => {
     setTextInput('');
     setImageFile(null);
     setImagePreview(null);
     setAnalysisResults(null);
-    setMatchingResults(null);
+    setLivePriceResults(null);
     setError(null);
     setActiveTab('analyze');
     if (fileInputRef.current) {
@@ -136,12 +139,17 @@ const ProductAnalyzer = () => {
     }
   };
 
+  const isLoading = isAnalyzing || isGettingPrices;
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
         <div className="flex items-center gap-3 mb-6">
           <Zap className="text-blue-600 h-8 w-8" />
-          <h1 className="text-3xl font-bold text-gray-800">AI Product Intelligence Tool</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">AI Product Intelligence Tool</h1>
+            <p className="text-sm text-gray-600">Phase 3: Live Price Aggregation & Product Matching</p>
+          </div>
         </div>
         
         <div className="space-y-6">
@@ -206,34 +214,34 @@ const ProductAnalyzer = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
               onClick={handleAnalyze}
-              disabled={isAnalyzing || isMatching}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={isLoading}
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
             >
-              <Search className="h-5 w-5" />
-              {isAnalyzing ? 'Analyzing...' : 'Analyze Product'}
+              <Search className="h-4 w-4" />
+              {isAnalyzing ? 'Analyzing...' : 'Analyze'}
             </button>
             
             <button
-              onClick={handleFindSimilar}
-              disabled={isAnalyzing || isMatching}
-              className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={handleGetLivePrices}
+              disabled={isLoading}
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
             >
-              <ShoppingCart className="h-5 w-5" />
-              {isMatching ? 'Finding Similar...' : 'Find Similar Products'}
-            </button>
-            
-            <button
-              onClick={clearAll}
-              disabled={isAnalyzing || isMatching}
-              className="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <X className="h-5 w-5" />
-              Clear All
+              <Globe className="h-4 w-4" />
+              {isGettingPrices ? 'Searching...' : 'Get Live Prices'}
             </button>
           </div>
+
+          <button
+            onClick={clearAll}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <X className="h-5 w-5" />
+            Clear All
+          </button>
         </div>
       </div>
 
@@ -248,12 +256,12 @@ const ProductAnalyzer = () => {
       )}
 
       {/* Results Tabs */}
-      {(analysisResults || matchingResults) && (
+      {(analysisResults || livePriceResults) && (
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex border-b border-gray-200 mb-6">
+          <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
             <button
               onClick={() => setActiveTab('analyze')}
-              className={`px-6 py-3 text-sm font-medium transition-colors ${
+              className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === 'analyze'
                   ? 'border-b-2 border-blue-500 text-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
@@ -262,23 +270,23 @@ const ProductAnalyzer = () => {
               Analysis Results
             </button>
             <button
-              onClick={() => setActiveTab('match')}
-              className={`px-6 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'match'
+              onClick={() => setActiveTab('prices')}
+              className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'prices'
                   ? 'border-b-2 border-blue-500 text-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              Similar Products
+              Live Prices
             </button>
           </div>
 
           {activeTab === 'analyze' && analysisResults && (
             <ResultsDisplay results={analysisResults} type="analysis" />
           )}
-          
-          {activeTab === 'match' && matchingResults && (
-            <MatchingResults results={matchingResults} />
+
+          {activeTab === 'prices' && livePriceResults && (
+            <LivePriceResults results={livePriceResults} />
           )}
         </div>
       )}
@@ -286,76 +294,125 @@ const ProductAnalyzer = () => {
   );
 };
 
-// New component for displaying matching results
-const MatchingResults = ({ results }) => {
-  const { input_features, matched_products, total_matches, processing_time } = results;
+
+
+// New component for displaying live price results (Phase 3)
+const LivePriceResults = ({ results }) => {
+  const { input_features, products, price_stats, total_found, search_query, processing_time } = results;
+  
+  console.log('LivePriceResults rendering with:', { products: products?.length, total_found });
 
   return (
     <div className="space-y-6">
-      {/* Input Features Summary */}
-      {input_features && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-blue-800 mb-2">Search Criteria</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="font-medium text-gray-700">Type:</span>
-              <span className="ml-2 text-gray-600">{input_features.product_type}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-700">Category:</span>
-              <span className="ml-2 text-gray-600">{input_features.category}</span>
-            </div>
-            {input_features.brand && (
+      {/* Search Info */}
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-purple-800 mb-2">Live Price Search</h3>
+        <div className="space-y-2 text-sm">
+          <div>
+            <span className="font-medium text-gray-700">Search Query:</span>
+            <span className="ml-2 text-gray-600">"{search_query}"</span>
+          </div>
+          {input_features && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <span className="font-medium text-gray-700">Brand:</span>
-                <span className="ml-2 text-gray-600">{input_features.brand}</span>
+                <span className="font-medium text-gray-700">Type:</span>
+                <span className="ml-2 text-gray-600">{input_features.product_type}</span>
               </div>
-            )}
-            {input_features.color && (
               <div>
-                <span className="font-medium text-gray-700">Color:</span>
-                <span className="ml-2 text-gray-600">{input_features.color}</span>
+                <span className="font-medium text-gray-700">Category:</span>
+                <span className="ml-2 text-gray-600">{input_features.category}</span>
               </div>
-            )}
+              {input_features.brand && (
+                <div>
+                  <span className="font-medium text-gray-700">Brand:</span>
+                  <span className="ml-2 text-gray-600">{input_features.brand}</span>
+                </div>
+              )}
+              {input_features.color && (
+                <div>
+                  <span className="font-medium text-gray-700">Color:</span>
+                  <span className="ml-2 text-gray-600">{input_features.color}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Price Statistics */}
+      {price_stats && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-green-800 mb-3">Price Statistics</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">${price_stats.min_price.toFixed(2)}</div>
+              <div className="text-xs text-gray-600">Lowest Price</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">${price_stats.avg_price.toFixed(2)}</div>
+              <div className="text-xs text-gray-600">Average Price</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">${price_stats.median_price.toFixed(2)}</div>
+              <div className="text-xs text-gray-600">Median Price</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">${price_stats.max_price.toFixed(2)}</div>
+              <div className="text-xs text-gray-600">Highest Price</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">${price_stats.price_range.toFixed(2)}</div>
+              <div className="text-xs text-gray-600">Price Range</div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Results Stats */}
+      {/* Results Header */}
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-semibold text-gray-800">
-          Found {total_matches} Similar Products
+          Found {total_found} Live Products
         </h3>
         <div className="text-sm text-gray-500">
           Processing time: {processing_time?.toFixed(2)}s
         </div>
       </div>
 
-      {/* Matched Products Grid */}
+      {/* Live Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {matched_products.map((product) => (
-          <div key={product.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        {products.map((product, index) => (
+          <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
             <div className="aspect-w-16 aspect-h-12 mb-4">
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-full h-48 object-cover rounded-lg"
-                onError={(e) => {
-                  e.target.src = `https://via.placeholder.com/400x300?text=${encodeURIComponent(product.name)}`;
-                }}
-              />
+              {product.thumbnail ? (
+                <img
+                  src={product.thumbnail}
+                  alt={product.title}
+                  className="w-full h-48 object-cover rounded-lg"
+                  onError={(e) => {
+                    e.target.src = `https://via.placeholder.com/400x300?text=${encodeURIComponent(product.title)}`;
+                  }}
+                />
+              ) : (
+                <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-500 text-sm">No Image</span>
+                </div>
+              )}
             </div>
             
             <h4 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
-              {product.name}
+              {product.title}
             </h4>
             
             <div className="flex justify-between items-center mb-2">
-              <span className="text-2xl font-bold text-green-600">
-                ${product.price.toFixed(2)}
-              </span>
-              <span className="text-sm text-gray-500 capitalize">
-                {product.category}
+              {product.price ? (
+                <span className="text-2xl font-bold text-green-600">
+                  ${parseFloat(product.price).toFixed(2)}
+                </span>
+              ) : (
+                <span className="text-lg text-gray-500">Price not available</span>
+              )}
+              <span className="text-sm text-gray-500">
+                {product.source}
               </span>
             </div>
             
@@ -363,46 +420,35 @@ const MatchingResults = ({ results }) => {
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 text-yellow-400 fill-current" />
                 <span className="text-sm text-gray-600">
-                  {(product.similarity_score * 100).toFixed(0)}% match
+                  {(product.match_score * 100).toFixed(0)}% match
                 </span>
               </div>
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-gray-600">
-                  {(product.price_score * 100).toFixed(0)}% value
-                </span>
-              </div>
+              {product.rating && (
+                <div className="flex items-center gap-1">
+                  <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                  <span className="text-sm text-gray-600">
+                    {product.rating} ({product.reviews || 0} reviews)
+                  </span>
+                </div>
+              )}
             </div>
             
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-1">
-                {product.key_features.slice(0, 3).map((feature, index) => (
-                  <span
-                    key={index}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                  >
-                    {feature}
-                  </span>
-                ))}
-                {product.key_features.length > 3 && (
-                  <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">
-                    +{product.key_features.length - 3} more
-                  </span>
-                )}
+            {product.shipping && (
+              <div className="text-sm text-gray-600 mb-3">
+                <span className="font-medium">Shipping:</span> {product.shipping}
               </div>
-              
-              <p className="text-sm text-gray-600 line-clamp-2">
-                {product.description}
-              </p>
-            </div>
+            )}
             
-            <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
-              <div className="flex justify-between">
-                <span>Combined Score:</span>
-                <span className="font-semibold">
-                  {(product.combined_score * 100).toFixed(1)}%
-                </span>
-              </div>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <a
+                href={product.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                <ExternalLink className="h-4 w-4" />
+                View Product
+              </a>
             </div>
           </div>
         ))}
@@ -410,5 +456,7 @@ const MatchingResults = ({ results }) => {
     </div>
   );
 };
+
+
 
 export default ProductAnalyzer; 

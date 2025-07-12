@@ -1,271 +1,449 @@
-# 🚀 AI-Powered Product Intelligence Tool
+# 🚀 AI Product Intelligence Tool
 
-A multi-modal product intelligence system that extracts features from product images and text descriptions using AI vision and NLP capabilities.
+> **Advanced Multi-Modal Product Analysis & Live Price Aggregation Platform**
 
-## 🎯 Project Overview
+An intelligent product analysis system that combines computer vision, natural language processing, and real-time price aggregation to provide comprehensive product insights and competitive pricing intelligence.
 
-This tool accepts:
-- Product images (JPEG, PNG, WEBP)
-- Product specifications (text descriptions)
-- Or both combined
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-orange.svg)](https://openai.com)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-It then:
-- Extracts product features using AI (OpenAI GPT-4 Vision, Gemini Vision, OpenAI GPT-4)
-- Normalizes features into structured JSON format
-- Displays results in a beautiful, responsive UI
+## 📋 Table of Contents
 
-## 📦 Tech Stack
+- [🎯 Overview](#-overview)
+- [✨ Features](#-features)
+- [🏗️ Architecture](#️-architecture)
+- [🚀 Quick Start](#-quick-start)
+- [📦 Installation](#-installation)
+- [⚙️ Configuration](#️-configuration)
+- [💻 Usage](#-usage)
+- [🔌 API Documentation](#-api-documentation)
+- [🧪 Testing](#-testing)
+- [📸 Screenshots](#-screenshots)
+- [🛠️ Technology Stack](#️-technology-stack)
+- [🔮 Roadmap](#-roadmap)
+- [🤝 Contributing](#-contributing)
 
-### Backend
-- **Framework**: FastAPI (Python)
-- **AI Models**: 
-  - OpenAI GPT-4o (image analysis with vision)
-  - OpenAI GPT-4 (text analysis)
-- **Database**: SQLite (for future phases)
-- **File Processing**: Pillow, aiofiles
+## 🎯 Overview
 
-### Frontend
-- **Framework**: React 18 + Vite
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **HTTP Client**: Axios
-- **UI**: Modern, responsive design with drag-and-drop
+The AI Product Intelligence Tool is a comprehensive platform that revolutionizes product analysis and price discovery through advanced AI technologies. Built with a modern microservices architecture, it provides real-time product intelligence for e-commerce businesses, retailers, and consumers.
 
-## 🏗️ Project Structure
+### 🎪 Live Demo
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **Interactive Docs**: http://localhost:8000/docs
 
+## ✨ Features
+
+### 🔍 **Phase 1: Multi-Modal Product Analysis**
+- **🖼️ Computer Vision**: Advanced image analysis using OpenAI GPT-4o Vision
+- **📝 Text Processing**: Natural language understanding for product descriptions
+- **🏷️ Feature Extraction**: Automatic identification of:
+  - Brand, model, product type
+  - Color, size, material, style
+  - Key features and specifications
+  - Product category classification
+- **⚡ Real-time Processing**: Sub-5 second analysis times
+- **📊 Confidence Scoring**: AI confidence metrics for extracted features
+
+### 🔎 **Phase 2: Intelligent Product Matching**
+- **🎯 Semantic Search**: Vector-based similarity matching using OpenAI embeddings
+- **📊 Similarity Scoring**: Advanced algorithms for product comparison
+- **💰 Price Analysis**: Competitive pricing evaluation
+- **🔄 Combined Scoring**: Weighted similarity + price competitiveness
+- **🗄️ Product Database**: 20+ sample products (lighting & fans)
+- **⚙️ Configurable Matching**: Adjustable similarity and price weights
+
+### 🛒 **Phase 3: Live Price Aggregation (Latest)**
+- **🌐 Google Shopping Integration**: Real-time price data from major retailers
+- **🔍 Fuzzy Matching**: Smart product matching across different platforms
+- **📈 Price Statistics**: Comprehensive pricing analytics
+  - Min/Max/Average/Median prices
+  - Price range analysis
+  - Market positioning insights
+- **🏪 Multi-Source Data**: Amazon, Walmart, Home Depot, H-E-B, and more
+- **🔗 Direct Links**: One-click access to purchase pages
+- **⚡ Real-time Updates**: Fresh pricing data on every search
+
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        A[React 18 + Vite]
+        B[Tailwind CSS]
+        C[Component Library]
+    end
+    
+    subgraph "Backend Layer"
+        D[FastAPI Server]
+        E[Pydantic Models]
+        F[Async Processing]
+    end
+    
+    subgraph "AI Services"
+        G[OpenAI GPT-4o Vision]
+        H[Text Embeddings]
+        I[Google Shopping API]
+    end
+    
+    subgraph "Data Layer"
+        J[Vector Database]
+        K[Product Catalog]
+        L[Price Cache]
+    end
+    
+    A --> D
+    D --> G
+    D --> H
+    D --> I
+    D --> J
+    E --> K
+    F --> L
 ```
-AI-powered Product Intelligence Tool/
-├── backend/
-│   ├── main.py              # FastAPI application
-│   ├── models.py            # Pydantic models
-│   ├── ai_services.py       # AI processing services
-│   └── __init__.py
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ProductAnalyzer.jsx
-│   │   │   └── ResultsDisplay.jsx
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── postcss.config.js
-├── config.py               # Configuration management
-├── requirements.txt        # Python dependencies
-└── README.md
-```
 
-## 🚀 Setup Instructions
+## 🚀 Quick Start
 
-### 1. Prerequisites
-- Python 3.9+ installed
-- Node.js 16+ installed
-- OpenAI API Key (required for both text and vision processing)
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- OpenAI API Key
+- Google Shopping API Key (SerpAPI)
 
-### 2. Environment Setup
-
-Create a `.env` file in the root directory:
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-ENVIRONMENT=development
-```
-
-### 3. Backend Setup
+### ⚡ 1-Minute Setup
 
 ```bash
-# Install Python dependencies
+# Clone the repository
+git clone https://github.com/Akhilvallala2023/ai-product-intelligence-tool.git
+cd ai-product-intelligence-tool
+
+# Setup backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Start the FastAPI server
-python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+# Setup frontend
+cd frontend
+npm install
+cd ..
+
+# Configure environment
+cp config.py.example config.py
+# Edit config.py with your API keys
+
+# Start the system
+python start_system.py
 ```
 
-The backend API will be available at: `http://localhost:8000`
-- API Documentation: `http://localhost:8000/docs`
-- Health Check: `http://localhost:8000/api/health`
+🎉 **That's it!** Open http://localhost:5173 to start analyzing products!
 
-### 4. Frontend Setup
+## 📦 Installation
 
+### Backend Setup
+
+1. **Create Virtual Environment**
 ```bash
-# Navigate to frontend directory
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+```
+
+2. **Install Dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+3. **Verify Installation**
+```bash
+python test_system.py
+```
+
+### Frontend Setup
+
+1. **Install Node Dependencies**
+```bash
 cd frontend
-
-# Install dependencies
 npm install
+```
 
-# Start the development server
+2. **Start Development Server**
+```bash
 npm run dev
 ```
 
-The frontend will be available at: `http://localhost:5173`
+## ⚙️ Configuration
 
-## 🧪 Testing Phase 1 - Base System
+### Environment Setup
 
-### Test Cases
+Create `config.py` with your API credentials:
 
-#### 1. Text-Only Analysis
-1. Navigate to `http://localhost:5173`
-2. Enter a product description: `"Red Nike Air Max sneakers size 10 with air cushioning"`
-3. Click "Analyze Product"
-4. Verify extracted features include:
-   - Brand: Nike
-   - Product Type: sneakers
-   - Color: Red
-   - Size: 10
-   - Key Features: air cushioning
+```python
+# API Configuration
+OPENAI_API_KEY = "your-openai-api-key-here"
+GOOGLE_SHOPPING_API_KEY = "your-serpapi-key-here"
 
-#### 2. Image-Only Analysis
-1. Upload a product image (drag & drop or click upload)
-2. Leave text description empty
-3. Click "Analyze Product"
-4. Verify features are extracted from the image
+# Server Configuration
+BACKEND_HOST = "localhost"
+BACKEND_PORT = 8000
+FRONTEND_PORT = 5173
 
-#### 3. Combined Analysis (Text + Image)
-1. Enter a product description
-2. Upload a product image
-3. Click "Analyze Product"
-4. Verify features are combined from both sources
-5. Check that extraction method shows "Combined Analysis"
+# AI Model Configuration
+OPENAI_MODEL_TEXT = "gpt-4o"
+OPENAI_MODEL_VISION = "gpt-4o"
+EMBEDDING_MODEL = "text-embedding-3-small"
 
-#### 4. API Testing
-Test the API endpoints directly:
-
-```bash
-# Health check
-curl http://localhost:8000/api/health
-
-# Text analysis
-curl -X POST "http://localhost:8000/api/analyze" \
-  -H "Content-Type: application/json" \
-  -d '{"product_text": "Blue Samsung Galaxy S24 smartphone 256GB"}'
-
-# Form-based analysis (with file upload)
-curl -X POST "http://localhost:8000/api/analyze-form" \
-  -F "product_text=iPhone 15 Pro" \
-  -F "image=@/path/to/your/image.jpg"
+# Google Shopping Settings
+SEARCH_LOCATION = "Austin, Texas, United States"
+SEARCH_LANGUAGE = "en"
+SEARCH_COUNTRY = "us"
 ```
 
-### Expected Performance
-- **Latency**: Under 2 seconds for most requests
-- **Accuracy**: High confidence scores (>80%) for clear inputs
-- **Error Handling**: Graceful handling of invalid inputs
+### API Keys Setup
 
-## 📊 Features Extracted
+1. **OpenAI API Key**
+   - Visit [OpenAI Platform](https://platform.openai.com/api-keys)
+   - Create a new API key
+   - Ensure you have access to GPT-4o and embeddings
 
-The system extracts structured product information:
+2. **Google Shopping API (SerpAPI)**
+   - Sign up at [SerpAPI](https://serpapi.com/)
+   - Get your free API key (100 searches/month)
+   - Upgrade for higher limits if needed
 
+## 💻 Usage
+
+### 🖼️ Image Analysis
+
+1. **Upload Product Image**
+   - Drag & drop or click to upload
+   - Supports PNG, JPG, GIF (up to 10MB)
+
+2. **Click "Analyze"**
+   - AI extracts product features
+   - View detailed specifications
+   - Get confidence scores
+
+### 💰 Live Price Discovery
+
+1. **Search Live Prices**
+   - Use analyzed features or manual input
+   - Click "Get Live Prices"
+   - View real-time pricing from multiple retailers
+
+2. **Price Analysis**
+   - Compare prices across platforms
+   - View price statistics and trends
+   - Access direct purchase links
+
+### 📊 Results Interface
+
+- **Analysis Tab**: Detailed product features and specifications
+- **Live Prices Tab**: Real-time pricing and availability
+- **Interactive Elements**: Expandable details, external links, ratings
+
+## 🔌 API Documentation
+
+### Core Endpoints
+
+#### Product Analysis
+```http
+POST /api/analyze-form
+Content-Type: multipart/form-data
+
+# Form fields:
+text_description: string (optional)
+image: file (optional)
+```
+
+#### Live Price Search
+```http
+POST /api/live-prices-form
+Content-Type: multipart/form-data
+
+# Form fields:
+text_description: string (optional)
+image: file (optional)
+max_results: integer (default: 10)
+include_price_stats: boolean (default: true)
+```
+
+#### Health Check
+```http
+GET /api/health
+```
+
+### Response Formats
+
+#### Analysis Response
 ```json
 {
-  "brand": "Nike",
-  "model": "Air Max 90",
-  "product_type": "sneakers",
-  "color": "red",
-  "size": "10",
-  "material": "leather and mesh",
-  "style": "athletic",
-  "category": "footwear",
-  "key_features": ["air cushioning", "retro design", "durable"],
-  "specifications": {
-    "sole_type": "rubber",
-    "closure": "lace-up"
+  "success": true,
+  "features": {
+    "brand": "Samsung",
+    "product_type": "Smart TV",
+    "category": "Electronics",
+    "key_features": ["4K", "HDR", "Smart TV"],
+    "specifications": {...}
   },
-  "confidence_score": 0.85,
-  "extraction_method": "combined"
+  "confidence_score": 0.95,
+  "processing_time": 2.34
 }
 ```
 
-## 🔍 API Endpoints
+#### Live Prices Response
+```json
+{
+  "success": true,
+  "products": [
+    {
+      "title": "Samsung 55\" 4K Smart TV",
+      "price": 799.99,
+      "source": "Amazon",
+      "link": "https://...",
+      "match_score": 0.87,
+      "rating": 4.5,
+      "reviews": 1234
+    }
+  ],
+  "price_stats": {
+    "min_price": 699.99,
+    "max_price": 899.99,
+    "avg_price": 787.50,
+    "median_price": 799.99
+  },
+  "total_found": 15,
+  "processing_time": 4.12
+}
+```
 
-### `POST /api/analyze`
-Analyze product from JSON request
-- **Body**: `{"product_text": "...", "image_base64": "..."}`
-- **Response**: Product analysis with extracted features
+## 🧪 Testing
 
-### `POST /api/analyze-form`
-Analyze product from form data (multipart)
-- **Form Data**: `product_text` (string), `image` (file)
-- **Response**: Product analysis with extracted features
+### Automated Tests
 
-### `GET /api/health`
-Health check endpoint
-- **Response**: API status and configuration info
+```bash
+# Run comprehensive test suite
+python test_system.py
 
-### `GET /`
-API information and available endpoints
+# Test specific components
+python -m pytest tests/
+```
 
-## 🚨 Troubleshooting
+### Manual Testing
 
-### Common Issues
+1. **Image Analysis Test**
+   - Upload sample product images
+   - Verify feature extraction accuracy
+   - Check processing times
 
-1. **"Configuration Error: OpenAI API key required"**
-   - Ensure `.env` file exists with valid `OPENAI_API_KEY`
-   - Check that the environment variable is loaded
+2. **Price Discovery Test**
+   - Search for common products
+   - Verify price accuracy
+   - Test external links
 
-2. **"CORS Error" in browser**
-   - Ensure backend is running on port 8000
-   - Check CORS configuration in `backend/main.py`
+3. **Performance Test**
+   - Monitor response times
+   - Check memory usage
+   - Verify concurrent requests
 
-3. **"Module not found" errors**
-   - Run `pip install -r requirements.txt`
-   - Ensure Python path includes the project directory
+## 📸 Screenshots
 
-4. **Frontend build errors**
-   - Run `npm install` in the frontend directory
-   - Check Node.js version (16+ required)
+### 🏠 Main Interface
+![Main Interface](docs/screenshots/main-interface.png)
 
-5. **Image upload fails**
-   - Check file size (max 10MB)
-   - Verify image format (JPEG, PNG, WEBP)
-   - Ensure proper file permissions
+### 🔍 Product Analysis
+![Product Analysis](docs/screenshots/analysis-results.png)
 
-## 🔮 Next Phases
+### 💰 Live Pricing
+![Live Pricing](docs/screenshots/live-prices.png)
 
-### Phase 2 - Matching Engine (Static)
-- Create dummy product database
-- Implement similarity scoring with embeddings
-- Add product matching and ranking
+### 📊 Price Statistics
+![Price Statistics](docs/screenshots/price-stats.png)
 
-### Phase 3 - Live Price Aggregation
-- Integrate shopping APIs
-- Add web scraping capabilities
-- Display real-time prices and links
+## 🛠️ Technology Stack
 
-### Phase 4 - Advanced Features
-- Price tracking over time
-- Review summarization
-- Product variant clustering
-- Enhanced filtering and sorting
+### Backend
+- **Framework**: FastAPI 0.104+
+- **AI/ML**: OpenAI GPT-4o, Text Embeddings
+- **Data Processing**: Pydantic, NumPy
+- **API Integration**: SerpAPI (Google Shopping)
+- **Server**: Uvicorn ASGI server
 
-## 📝 Development Notes
+### Frontend
+- **Framework**: React 18
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **State Management**: React Hooks
 
-### Code Quality
-- Modular, testable architecture
-- Type hints and documentation
-- Error handling and validation
-- Clean separation of concerns
+### DevOps & Tools
+- **Version Control**: Git
+- **Package Management**: pip, npm
+- **Development**: Hot reload, Auto-restart
+- **Testing**: Custom test suite
+- **Documentation**: Markdown, Mermaid diagrams
 
-### Performance Considerations
-- Async/await for API calls
-- Efficient image processing
-- Caching strategies for future phases
-- Rate limiting for API calls
+## 🔮 Roadmap
 
-### Security
-- Input validation and sanitization
-- File upload restrictions
-- API key management
-- CORS configuration
+### 🎯 Phase 4: Advanced Analytics (Planned)
+- [ ] **Historical Price Tracking**: Price trend analysis over time
+- [ ] **Market Intelligence**: Competitor analysis and positioning
+- [ ] **Inventory Monitoring**: Stock level tracking across retailers
+- [ ] **Price Alerts**: Automated notifications for price changes
+
+### 🎯 Phase 5: Machine Learning Enhancement (Planned)
+- [ ] **Custom Models**: Fine-tuned models for specific product categories
+- [ ] **Recommendation Engine**: AI-powered product suggestions
+- [ ] **Sentiment Analysis**: Review and rating sentiment analysis
+- [ ] **Demand Forecasting**: Predictive analytics for pricing
+
+### 🎯 Phase 6: Enterprise Features (Planned)
+- [ ] **User Authentication**: Multi-user support with role-based access
+- [ ] **API Rate Limiting**: Advanced throttling and quotas
+- [ ] **Database Integration**: PostgreSQL/MongoDB support
+- [ ] **Webhook Integrations**: Real-time notifications and integrations
 
 ## 🤝 Contributing
 
-1. Follow the phase-by-phase development approach
-2. Test thoroughly before advancing to next phase
-3. Maintain clean, modular code
-4. Document all changes and new features
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Workflow
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make your changes**: Follow our coding standards
+4. **Add tests**: Ensure your code is well-tested
+5. **Commit your changes**: `git commit -m 'Add amazing feature'`
+6. **Push to the branch**: `git push origin feature/amazing-feature`
+7. **Open a Pull Request**: Describe your changes and their impact
+
+### Code Standards
+
+- **Python**: Follow PEP 8, use type hints
+- **JavaScript**: Use ESLint and Prettier
+- **Documentation**: Update README and docstrings
+- **Testing**: Maintain >90% test coverage
 
 ## 📄 License
 
-This project is for educational and development purposes. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **OpenAI** for providing state-of-the-art AI models
+- **SerpAPI** for reliable Google Shopping data access
+- **FastAPI** team for the excellent web framework
+- **React** community for the robust frontend ecosystem
+- **Tailwind CSS** for beautiful, utility-first styling
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/Akhilvallala2023/ai-product-intelligence-tool/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Akhilvallala2023/ai-product-intelligence-tool/discussions)
+- **Email**: support@ai-product-intelligence.com
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ by the AI Product Intelligence Team</sub>
+</div> 

@@ -6,10 +6,12 @@ load_dotenv()
 
 class Config:
     # OpenAI Configuration
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    # Get your API key from: https://platform.openai.com/api-keys
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-openai-api-key-here")
     
     # Google Shopping API Configuration (SerpAPI)
-    GOOGLE_SHOPPING_API_KEY = os.getenv("GOOGLE_SHOPPING_API_KEY")
+    # Get your API key from: https://serpapi.com/
+    GOOGLE_SHOPPING_API_KEY = os.getenv("GOOGLE_SHOPPING_API_KEY", "your-serpapi-key-here")
     
     # Application Configuration
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -30,10 +32,10 @@ class Config:
     @classmethod
     def validate_config(cls):
         """Validate all required configuration values"""
-        if not cls.OPENAI_API_KEY:
+        if not cls.OPENAI_API_KEY or cls.OPENAI_API_KEY == "your-openai-api-key-here":
             raise ValueError("OPENAI_API_KEY is required. Please set it in your environment variables or .env file")
         
-        if not cls.GOOGLE_SHOPPING_API_KEY:
+        if not cls.GOOGLE_SHOPPING_API_KEY or cls.GOOGLE_SHOPPING_API_KEY == "your-serpapi-key-here":
             raise ValueError("GOOGLE_SHOPPING_API_KEY is required. Please set it in your environment variables or .env file")
         
         if cls.ENVIRONMENT not in ["development", "production", "testing"]:
