@@ -169,8 +169,8 @@ class GoogleShoppingService:
                         "title": result.get("title", ""),
                         "price": price,
                         "original_price": original_price,
-                        "link": result.get("link", ""),
-                        "product_link": result.get("product_link", ""),
+                        "link": result.get("product_link", result.get("link")),  # Use product_link as primary, link as fallback
+                        "product_link": result.get("product_link"),
                         "source": result.get("source", ""),
                         "thumbnail": result.get("thumbnail", ""),
                         "rating": result.get("rating"),

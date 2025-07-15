@@ -380,7 +380,8 @@ const LivePriceResults = ({ results }) => {
 
       {/* Live Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map((product, index) => (
+        {products.map((product, index) => {
+          return (
           <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
             <div className="aspect-w-16 aspect-h-12 mb-4">
               {product.thumbnail ? (
@@ -440,18 +441,26 @@ const LivePriceResults = ({ results }) => {
             )}
             
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <a
-                href={product.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View Product
-              </a>
+              {product.link ? (
+                <a
+                  href={product.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View Product
+                </a>
+              ) : (
+                <div className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed text-sm">
+                  <ExternalLink className="h-4 w-4" />
+                  Link Unavailable
+                </div>
+              )}
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
     </div>
   );
