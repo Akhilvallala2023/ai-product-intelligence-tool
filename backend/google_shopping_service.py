@@ -6,6 +6,7 @@ from backend.models import ProductFeatures
 import re
 from difflib import SequenceMatcher
 import json
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -43,59 +44,15 @@ class GoogleShoppingService:
         if features.style and features.style.lower() not in ['standard', 'regular', 'basic']:
             query_parts.append(features.style)
         
-        # Add important specifications based on product category
+        # Add ALL specifications to the search query
         if features.specifications:
-            # Define category-specific important specifications
-            category_specs = {
-                "lighting": [
-                    "Light Source Type", "Power Source", "Indoor/Outdoor Usage",
-                    "Special Feature", "Theme", "Light Color", "Installation Type"
-                ],
-                "furniture": [
-                    "Material Type", "Assembly Required", "Room Type", 
-                    "Weight Capacity", "Dimensions", "Finish Type"
-                ],
-                "electronics": [
-                    "Connectivity Technology", "Compatible Devices", "Screen Size",
-                    "Resolution", "Battery Life", "Operating System", "Storage Capacity"
-                ],
-                "appliances": [
-                    "Energy Efficiency", "Capacity", "Control Type",
-                    "Special Features", "Installation Type", "Power Source"
-                ],
-                "clothing": [
-                    "Material", "Fit Type", "Closure Type",
-                    "Season", "Pattern", "Occasion"
-                ],
-                "toys": [
-                    "Age Range", "Educational Objective", "Material",
-                    "Battery Required", "Theme", "Number of Pieces"
-                ],
-                "fans": [
-                    "Air Flow Capacity", "Power Source", "Speed Settings",
-                    "Control Type", "Indoor/Outdoor Usage", "Special Features",
-                    "Mounting Type", "Blade Material", "Room Size Coverage"
-                ]
-            }
-            
-            # Default specifications for any category
-            default_specs = [
-                "Special Feature", "Power Source", "Material", 
-                "Size", "Color", "Theme", "Style"
-            ]
-            
-            # Get the appropriate spec keys for this product's category
-            category = features.category.lower() if features.category else ""
-            important_spec_keys = category_specs.get(category, default_specs)
-            
-            for key in important_spec_keys:
-                if key in features.specifications and features.specifications[key]:
-                    spec_value = features.specifications[key]
+            for key, value in features.specifications.items():
+                if value and len(str(value).strip()) > 0:
                     # Skip very common/generic values
-                    if spec_value.lower() not in ['standard', 'regular', 'basic', 'normal', 'default']:
-                        query_parts.append(spec_value)
+                    if str(value).lower() not in ['standard', 'regular', 'basic', 'normal', 'default', 'yes', 'no']:
+                        query_parts.append(str(value))
         
-        # Add top 3 key features (increased from 2)
+        # Add top 3 key features
         if features.key_features:
             for feature in features.key_features[:3]:
                 if len(feature) > 3 and feature.lower() not in ['durable', 'quality', 'good']:
@@ -105,9 +62,9 @@ class GoogleShoppingService:
         query = " ".join(query_parts)
         query = re.sub(r'\s+', ' ', query).strip()
         
-        # Limit query length for better results
-        if len(query) > 100:
-            query = query[:100].rsplit(' ', 1)[0]
+        # Limit query length for better results (increased limit to accommodate more specs)
+        if len(query) > 200:
+            query = query[:200].rsplit(' ', 1)[0]
         
         logger.info(f"Generated search query: '{query}'")
         return query
@@ -116,34 +73,45 @@ class GoogleShoppingService:
         """Calculate similarity between two strings"""
         return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
     
-    def fuzzy_match_product(self, extracted_features: ProductFeatures, shopping_result: Dict[str, Any]) -> float:
+    def fuzzy_match_product(self, extracted_features: ProductFeatures, shopping_result: Dict[str, Any], 
+                           matching_criteria: Optional[Dict[str, bool]] = None) -> float:
         """Calculate fuzzy match score between extracted features and shopping result"""
         score = 0.0
         weight_sum = 0.0
         
+        # Use default matching if no criteria provided
+        if matching_criteria is None:
+            matching_criteria = {
+                "titleMatching": True,
+                "brandMatching": True,
+                "colorMatching": True,
+                "sizeMatching": True,
+                "specificationsMatching": True
+            }
+        
         # Product title matching (high weight)
-        if 'title' in shopping_result:
+        if matching_criteria.get("titleMatching", True) and 'title' in shopping_result:
             title_score = self.similarity_score(
                 extracted_features.product_type or "",
                 shopping_result['title']
             )
-            score += title_score * 0.3  # Reduced from 0.4 to make room for specifications
+            score += title_score * 0.3
             weight_sum += 0.3
         
         # Brand matching (high weight)
-        if extracted_features.brand and 'title' in shopping_result:
+        if matching_criteria.get("brandMatching", True) and extracted_features.brand and 'title' in shopping_result:
             brand_score = 1.0 if extracted_features.brand.lower() in shopping_result['title'].lower() else 0.0
-            score += brand_score * 0.25  # Reduced from 0.3
+            score += brand_score * 0.25
             weight_sum += 0.25
         
         # Color matching (medium weight)
-        if extracted_features.color and 'title' in shopping_result:
+        if matching_criteria.get("colorMatching", True) and extracted_features.color and 'title' in shopping_result:
             color_score = 1.0 if extracted_features.color.lower() in shopping_result['title'].lower() else 0.0
-            score += color_score * 0.1  # Reduced from 0.15
+            score += color_score * 0.1
             weight_sum += 0.1
         
         # Size matching (medium weight)
-        if extracted_features.size and 'title' in shopping_result:
+        if matching_criteria.get("sizeMatching", True) and extracted_features.size and 'title' in shopping_result:
             # Extract size patterns from both
             size_pattern = r'\b\d+[\s]*(?:inch|in|ft|feet|cm|mm|"|\')\b'
             extracted_sizes = re.findall(size_pattern, extracted_features.size.lower(), re.IGNORECASE)
@@ -160,11 +128,11 @@ class GoogleShoppingService:
                     if size_score > 0:
                         break
             
-            score += size_score * 0.1  # Reduced from 0.15
+            score += size_score * 0.1
             weight_sum += 0.1
         
-        # Specifications matching (new)
-        if extracted_features.specifications and 'title' in shopping_result:
+        # Specifications matching
+        if matching_criteria.get("specificationsMatching", True) and extracted_features.specifications and 'title' in shopping_result:
             spec_score = 0.0
             spec_count = 0
             
@@ -181,7 +149,7 @@ class GoogleShoppingService:
             
             if spec_count > 0:
                 final_spec_score = spec_score / spec_count
-                score += final_spec_score * 0.25  # High weight for specifications
+                score += final_spec_score * 0.25
                 weight_sum += 0.25
         
         # Normalize score
@@ -190,7 +158,8 @@ class GoogleShoppingService:
         else:
             return 0.0
     
-    async def search_products(self, features: ProductFeatures, max_results: int = 10) -> List[Dict[str, Any]]:
+    async def search_products(self, features: ProductFeatures, max_results: int = 10, 
+                            matching_criteria: Optional[Dict[str, bool]] = None) -> List[Dict[str, Any]]:
         """Search for products using Google Shopping API"""
         try:
             query = self.create_search_query(features)
@@ -228,10 +197,18 @@ class GoogleShoppingService:
             for result in shopping_results:
                 try:
                     # Calculate fuzzy match score
-                    match_score = self.fuzzy_match_product(features, result)
+                    match_score = self.fuzzy_match_product(features, result, matching_criteria)
                     
                     # Extract price information
                     price = self.extract_price(result)
+                    
+                    # Extract pack quantity and calculate unit price
+                    pack_quantity = None
+                    unit_price = None
+                    if price and 'title' in result:
+                        pack_quantity = self.extract_pack_quantity(result['title'])
+                        if pack_quantity:
+                            unit_price = self.calculate_unit_price(price, pack_quantity)
                     
                     # Clean and structure the result
                     original_price = result.get("extracted_price")
@@ -241,8 +218,10 @@ class GoogleShoppingService:
                     processed_result = {
                         "title": result.get("title", ""),
                         "price": price,
+                        "unit_price": unit_price,
+                        "pack_quantity": pack_quantity,
                         "original_price": original_price,
-                        "link": result.get("product_link", result.get("link")),  # Use product_link as primary, link as fallback
+                        "link": result.get("product_link", result.get("link")),
                         "product_link": result.get("product_link"),
                         "source": result.get("source", ""),
                         "thumbnail": result.get("thumbnail", ""),
@@ -272,6 +251,135 @@ class GoogleShoppingService:
             logger.error(f"Error searching Google Shopping: {e}")
             return []
     
+    async def search_products_by_image(self, image_base64: str, max_results: int = 10) -> List[Dict[str, Any]]:
+        """Search for products using Bing Images API based on an image"""
+        try:
+            logger.info("Searching Bing Images with image")
+            
+            # Prepare search parameters for image search
+            params = {
+                "engine": "bing_images",
+                "api_key": self.api_key,
+            }
+            
+            # First get image search results
+            search = GoogleSearch(params)
+            results = search.get_dict()
+            
+            if "images_results" not in results or not results["images_results"]:
+                logger.warning("No image results found")
+                return []
+            
+            # Get the first few results as potential matches
+            image_results = results["images_results"][:max_results]
+            logger.info(f"Found {len(image_results)} image results")
+            
+            # Process results
+            processed_results = []
+            for result in image_results:
+                try:
+                    # Create a structured result
+                    processed_result = {
+                        "title": result.get("title", "Unknown Product"),
+                        "link": result.get("link", ""),
+                        "source": result.get("source", ""),
+                        "thumbnail": result.get("thumbnail", ""),
+                        "original_image": result.get("original", ""),
+                        "match_score": 0.7,  # Default score for image matches
+                    }
+                    
+                    processed_results.append(processed_result)
+                except Exception as e:
+                    logger.error(f"Error processing image result: {e}")
+            
+            return processed_results
+            
+        except Exception as e:
+            logger.error(f"Error in Bing Images search: {e}")
+            return []
+    
+    async def search_products_by_extracted_features(self, features: ProductFeatures, max_results: int = 10) -> List[Dict[str, Any]]:
+        """Search for products using Bing Images API based on extracted features"""
+        try:
+            logger.info("Searching Bing Images with extracted features")
+            
+            # Create a search query from the features
+            query = self.create_search_query(features)
+            
+            # Prepare search parameters
+            params = {
+                "engine": "bing_images",
+                "q": query,
+                "api_key": self.api_key,
+            }
+            
+            # Perform the search
+            search = GoogleSearch(params)
+            results = search.get_dict()
+            
+            if "images_results" not in results or not results["images_results"]:
+                logger.warning("No image results found")
+                return []
+            
+            # Get the results
+            image_results = results["images_results"][:max_results]
+            logger.info(f"Found {len(image_results)} image results for query: {query}")
+            
+            # Process results
+            processed_results = []
+            for result in image_results:
+                try:
+                    # Create a structured result
+                    processed_result = {
+                        "title": result.get("title", "Unknown Product"),
+                        "link": result.get("link", ""),
+                        "source": result.get("source", ""),
+                        "thumbnail": result.get("thumbnail", ""),
+                        "original_image": result.get("original", ""),
+                        "match_score": 0.8,  # Higher score for feature-based matches
+                    }
+                    
+                    processed_results.append(processed_result)
+                except Exception as e:
+                    logger.error(f"Error processing image result: {e}")
+            
+            return processed_results
+            
+        except Exception as e:
+            logger.error(f"Error in Bing Images search with features: {e}")
+            return []
+    
+    def extract_pack_quantity(self, title: str) -> Optional[int]:
+        """Extract pack quantity from product title (e.g., '12-pack', '8-pack', etc.)"""
+        try:
+            # Look for patterns like "12-pack", "8-pack", "2-pack", "4-pack", etc.
+            pack_pattern = r'(\d+)-pack'
+            match = re.search(pack_pattern, title, re.IGNORECASE)
+            
+            if match:
+                quantity = int(match.group(1))
+                logger.info(f"Detected pack quantity: {quantity} from title: {title}")
+                return quantity
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error extracting pack quantity: {e}")
+            return None
+    
+    def calculate_unit_price(self, total_price: float, pack_quantity: int) -> float:
+        """Calculate unit price by dividing total price by pack quantity"""
+        try:
+            if pack_quantity > 0:
+                unit_price = total_price / pack_quantity
+                logger.info(f"Calculated unit price: ${total_price:.2f} / {pack_quantity} = ${unit_price:.2f}")
+                return unit_price
+            return total_price
+            
+        except Exception as e:
+            logger.warning(f"Error calculating unit price: {e}")
+            return total_price
+
     def extract_price(self, result: Dict[str, Any]) -> Optional[float]:
         """Extract numeric price from shopping result"""
         try:
@@ -293,31 +401,17 @@ class GoogleShoppingService:
             logger.warning(f"Error extracting price: {e}")
             return None
     
-    async def get_product_alternatives(self, features: ProductFeatures, price_range: Optional[tuple] = None) -> List[Dict[str, Any]]:
-        """Get alternative products with optional price filtering"""
-        results = await self.search_products(features, max_results=15)
-        
-        if price_range:
-            min_price, max_price = price_range
-            filtered_results = []
-            
-            for result in results:
-                if result["price"] and min_price <= result["price"] <= max_price:
-                    filtered_results.append(result)
-            
-            return filtered_results
-        
-        return results
-    
-    async def get_price_comparison(self, features: ProductFeatures) -> Dict[str, Any]:
+    async def get_price_comparison(self, features: ProductFeatures, 
+                                 matching_criteria: Optional[Dict[str, bool]] = None) -> Dict[str, Any]:
         """Get comprehensive price comparison data"""
-        results = await self.search_products(features, max_results=20)
+        results = await self.search_products(features, max_results=20, matching_criteria=matching_criteria)
         
         if not results:
             return {
                 "products": [],
                 "price_stats": {},
-                "total_found": 0
+                "total_found": 0,
+                "search_query": self.create_search_query(features)
             }
         
         # Extract prices for statistics

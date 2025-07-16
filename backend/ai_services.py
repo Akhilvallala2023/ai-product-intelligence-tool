@@ -3,7 +3,7 @@ import re
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from openai import AsyncOpenAI
-from backend.models import ProductFeatures, MatchedProduct
+from backend.models import ProductFeatures
 from backend.product_database import product_db
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
@@ -250,20 +250,20 @@ class AIProductProcessor:
             specs = []
             for key, value in product['specifications'].items():
                 specs.append(f"{key}: {value}")
-            if specs:
-                parts.append(f"Specifications: {', '.join(specs)}")
+            parts.append(f"Specifications: {', '.join(specs)}")
         
         # Add description
         if product.get('description'):
             parts.append(f"Description: {product['description']}")
         
-        return " | ".join(parts)
+        return " ".join(parts)
     
     def create_features_text(self, features: ProductFeatures) -> str:
-        """Create a text representation of extracted features for embedding"""
+        """Create a text representation of product features for embedding"""
         parts = []
         
-        parts.append(f"Type: {features.product_type}")
+        # Add basic info
+        parts.append(f"Product: {features.product_type}")
         parts.append(f"Category: {features.category}")
         
         if features.brand:
@@ -286,25 +286,33 @@ class AIProductProcessor:
             specs = []
             for key, value in features.specifications.items():
                 specs.append(f"{key}: {value}")
-            if specs:
-                parts.append(f"Specifications: {', '.join(specs)}")
+            parts.append(f"Specifications: {', '.join(specs)}")
         
-        return " | ".join(parts)
+        return " ".join(parts)
     
     def calculate_price_score(self, product_price: float, all_prices: List[float]) -> float:
-        """Calculate price competitiveness score (lower price = higher score)"""
+        """Calculate a price competitiveness score
+        
+        Lower prices get higher scores, with diminishing returns for extremely low prices
+        """
         if not all_prices:
-            return 0.5
+            return 0.5  # Default score if no comparison prices
         
-        min_price = min(all_prices)
         max_price = max(all_prices)
+        min_price = min(all_prices)
+        price_range = max_price - min_price
         
-        if min_price == max_price:
+        if price_range == 0:  # All prices are the same
             return 1.0
         
-        # Normalize price score (lower price gets higher score)
-        normalized_score = 1.0 - (product_price - min_price) / (max_price - min_price)
-        return max(0.0, min(1.0, normalized_score))
+        # Normalize price (0 = cheapest, 1 = most expensive)
+        normalized_price = (product_price - min_price) / price_range
+        
+        # Invert so lower prices get higher scores (0.5 to 1.0)
+        # Using a curve that gives diminishing returns for extremely low prices
+        price_score = 1.0 - (normalized_price ** 0.7) * 0.5
+        
+        return price_score
     
     async def find_similar_products(
         self, 
@@ -313,10 +321,10 @@ class AIProductProcessor:
         category_filter: Optional[str] = None,
         price_weight: float = 0.3,
         similarity_weight: float = 0.7
-    ) -> List[MatchedProduct]:
-        """Find similar products using embeddings and similarity scoring"""
+    ) -> List[Dict[str, Any]]:
+        """Find similar products based on input features"""
         try:
-            # Get all products
+            # Get all products from database
             all_products = product_db.get_all_products()
             
             # Apply category filter if specified
@@ -329,56 +337,59 @@ class AIProductProcessor:
             # Create text representation of input features
             input_text = self.create_features_text(input_features)
             
-            # Get input embedding
+            # Get embedding for input features
             input_embedding = await self.get_product_embedding(input_text)
             
-            # Get embeddings for all products
+            # Calculate embeddings and similarity scores for all products
             product_embeddings = []
             for product in all_products:
                 product_text = self.create_product_text(product)
-                embedding = await self.get_product_embedding(product_text)
-                product_embeddings.append(embedding)
+                product_embedding = await self.get_product_embedding(product_text)
+                product_embeddings.append(product_embedding)
             
-            # Calculate similarity scores
-            input_embedding_array = np.array(input_embedding).reshape(1, -1)
-            products_embedding_array = np.array(product_embeddings)
+            # Convert to numpy arrays for cosine similarity
+            input_embedding_np = np.array(input_embedding).reshape(1, -1)
+            product_embeddings_np = np.array(product_embeddings)
             
-            similarity_scores = cosine_similarity(input_embedding_array, products_embedding_array)[0]
+            # Calculate cosine similarity scores
+            similarity_scores = cosine_similarity(input_embedding_np, product_embeddings_np)[0]
             
-            # Calculate price scores
+            # Get all prices for price scoring
             all_prices = [p['price'] for p in all_products]
             
-            # Create matched products with scores
+            # Calculate combined scores
             matched_products = []
-            for i, (product, similarity_score) in enumerate(zip(all_products, similarity_scores)):
+            for i, product in enumerate(all_products):
+                similarity_score = float(similarity_scores[i])
                 price_score = self.calculate_price_score(product['price'], all_prices)
                 
-                # Combined score
-                combined_score = (similarity_weight * similarity_score) + (price_weight * price_score)
+                # Combined score with weighting
+                combined_score = (similarity_score * similarity_weight) + (price_score * price_weight)
                 
-                matched_product = MatchedProduct(
-                    id=product['id'],
-                    name=product['name'],
-                    price=product['price'],
-                    image_url=product['image_url'],
-                    category=product['category'],
-                    product_type=product['product_type'],
-                    brand=product.get('brand'),
-                    color=product.get('color'),
-                    size=product.get('size'),
-                    material=product.get('material'),
-                    style=product.get('style'),
-                    key_features=product.get('key_features', []),
-                    specifications=product.get('specifications', {}),
-                    description=product.get('description', ''),
-                    similarity_score=float(similarity_score),
-                    price_score=float(price_score),
-                    combined_score=float(combined_score)
-                )
+                # Create matched product object
+                matched_product = {
+                    "id": product['id'],
+                    "name": product['name'],
+                    "price": product['price'],
+                    "image_url": product['image_url'],
+                    "category": product['category'],
+                    "product_type": product['product_type'],
+                    "brand": product.get('brand'),
+                    "color": product.get('color'),
+                    "size": product.get('size'),
+                    "material": product.get('material'),
+                    "style": product.get('style'),
+                    "key_features": product.get('key_features', []),
+                    "specifications": product.get('specifications', {}),
+                    "description": product.get('description', ''),
+                    "similarity_score": similarity_score,
+                    "price_score": price_score,
+                    "combined_score": combined_score
+                }
                 matched_products.append(matched_product)
             
             # Sort by combined score (descending)
-            matched_products.sort(key=lambda x: x.combined_score, reverse=True)
+            matched_products.sort(key=lambda x: x['combined_score'], reverse=True)
             
             # Return top results
             return matched_products[:max_results]
