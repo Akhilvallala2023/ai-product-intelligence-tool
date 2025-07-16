@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Search, Zap, Star, DollarSign, Globe, ExternalLink, Settings, Filter, Sliders, Check, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Search, Zap, Star, DollarSign, Globe, ExternalLink, Settings, Filter, Check, ChevronRight, Image as ImageIcon } from 'lucide-react';
 import ResultsDisplay from './ResultsDisplay';
 
 const ProductAnalyzer = () => {
@@ -15,19 +15,11 @@ const ProductAnalyzer = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('prices'); // Changed default to 'prices'
   const [extractionMethod, setExtractionMethod] = useState('both'); // 'image', 'text', 'both'
-  const [showMatchingOptions, setShowMatchingOptions] = useState(false);
   const [showExtractedFeatures, setShowExtractedFeatures] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [priceThreshold, setPriceThreshold] = useState('');
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [isFiltering, setIsFiltering] = useState(false);
-  const [matchingCriteria, setMatchingCriteria] = useState({
-    titleMatching: true,
-    brandMatching: true,
-    colorMatching: true,
-    sizeMatching: true,
-    specificationsMatching: true
-  });
   const fileInputRef = useRef(null);
 
   const handleImageUpload = (e) => {
@@ -48,25 +40,6 @@ const ProductAnalyzer = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
-
-  const handleMatchingCriteriaChange = (criterion) => {
-    setMatchingCriteria(prev => {
-      // Ensure at least one criterion is selected
-      const newValue = !prev[criterion];
-      const wouldAllBeFalse = Object.keys(prev)
-        .filter(key => key !== criterion)
-        .every(key => !prev[key]) && !newValue;
-      
-      if (wouldAllBeFalse) {
-        return prev; // Don't allow all criteria to be deselected
-      }
-      
-      return {
-        ...prev,
-        [criterion]: newValue
-      };
-    });
   };
 
   const analyzeInput = async () => {
@@ -159,7 +132,7 @@ const ProductAnalyzer = () => {
       }
 
       // Add matching criteria
-      formData.append('matching_criteria', JSON.stringify(matchingCriteria));
+      formData.append('matching_criteria', JSON.stringify({})); // Removed matching criteria
       formData.append('max_results', '10');
       formData.append('include_price_stats', 'true');
 
@@ -412,88 +385,6 @@ const ProductAnalyzer = () => {
               </div>
             </div>
           )}
-
-          {/* Matching Criteria */}
-          <div>
-            <button
-              onClick={() => setShowMatchingOptions(!showMatchingOptions)}
-              className="flex items-center justify-between w-full px-4 py-2 text-left text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <div className="flex items-center">
-                <Sliders className="h-4 w-4 mr-2 text-blue-600" />
-                Matching Criteria
-              </div>
-              <span>{showMatchingOptions ? '▲' : '▼'}</span>
-            </button>
-            
-            {showMatchingOptions && (
-              <div className="mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-xs text-gray-600 mb-3">Select which criteria to use when matching products:</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div className="flex items-center">
-                    <input
-                      id="titleMatching"
-                      type="checkbox"
-                      checked={matchingCriteria.titleMatching}
-                      onChange={() => handleMatchingCriteriaChange('titleMatching')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="titleMatching" className="ml-2 block text-sm text-gray-700">
-                      Title Matching (30%)
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="brandMatching"
-                      type="checkbox"
-                      checked={matchingCriteria.brandMatching}
-                      onChange={() => handleMatchingCriteriaChange('brandMatching')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="brandMatching" className="ml-2 block text-sm text-gray-700">
-                      Brand Matching (25%)
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="colorMatching"
-                      type="checkbox"
-                      checked={matchingCriteria.colorMatching}
-                      onChange={() => handleMatchingCriteriaChange('colorMatching')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="colorMatching" className="ml-2 block text-sm text-gray-700">
-                      Color Matching (10%)
-                    </label>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      id="sizeMatching"
-                      type="checkbox"
-                      checked={matchingCriteria.sizeMatching}
-                      onChange={() => handleMatchingCriteriaChange('sizeMatching')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="sizeMatching" className="ml-2 block text-sm text-gray-700">
-                      Size Matching (10%)
-                    </label>
-                  </div>
-                  <div className="flex items-center md:col-span-2">
-                    <input
-                      id="specificationsMatching"
-                      type="checkbox"
-                      checked={matchingCriteria.specificationsMatching}
-                      onChange={() => handleMatchingCriteriaChange('specificationsMatching')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="specificationsMatching" className="ml-2 block text-sm text-gray-700">
-                      Specifications Matching (25%)
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 mt-6">
