@@ -56,7 +56,7 @@ The AI Product Intelligence Tool is a comprehensive platform that revolutionizes
 - **🗄️ Product Database**: 20+ sample products (lighting & fans)
 - **⚙️ Configurable Matching**: Adjustable similarity and price weights
 
-### 🛒 **Phase 3: Live Price Aggregation (Latest)**
+### 🛒 **Phase 3: Live Price Aggregation**
 - **🌐 Google Shopping Integration**: Real-time price data from major retailers
 - **🔍 Fuzzy Matching**: Smart product matching across different platforms
 - **📈 Price Statistics**: Comprehensive pricing analytics
@@ -66,6 +66,14 @@ The AI Product Intelligence Tool is a comprehensive platform that revolutionizes
 - **🏪 Multi-Source Data**: Amazon, Walmart, Home Depot, H-E-B, and more
 - **🔗 Direct Links**: One-click access to purchase pages
 - **⚡ Real-time Updates**: Fresh pricing data on every search
+
+### 🔎 **Phase 4: Image-Based Product Search (Latest)**
+- **📸 Bing Images Integration**: Search for similar products using only an image
+- **🔍 Visual Feature Extraction**: Automatically extract features from uploaded images
+- **🧠 AI-Generated Search Queries**: Convert visual features into optimized search terms
+- **🌐 Multi-Source Results**: Find similar products across the web
+- **🔗 Direct Links**: One-click access to product pages
+- **🎯 Match Scoring**: Confidence scores for visual similarity matching
 
 ## 🏗️ Architecture
 
@@ -236,10 +244,27 @@ SEARCH_COUNTRY = "us"
    - View price statistics and trends
    - Access direct purchase links
 
+### 🔍 Image-Based Product Search
+
+1. **Upload Product Image**
+   - Drag & drop or click to upload
+   - Supports PNG, JPG, GIF (up to 10MB)
+
+2. **Click "Search by Image"**
+   - AI extracts visual features
+   - Generates optimized search query
+   - Finds similar products across the web
+
+3. **Browse Similar Products**
+   - View visually similar products
+   - See match confidence scores
+   - Access direct links to product pages
+
 ### 📊 Results Interface
 
 - **Analysis Tab**: Detailed product features and specifications
 - **Live Prices Tab**: Real-time pricing and availability
+- **Image Search Tab**: Visually similar products found across the web
 - **Interactive Elements**: Expandable details, external links, ratings
 
 ## 🔌 API Documentation
@@ -248,24 +273,80 @@ SEARCH_COUNTRY = "us"
 
 #### Product Analysis
 ```http
-POST /api/analyze-form
-Content-Type: multipart/form-data
+POST /api/analyze
+Content-Type: application/json
 
-# Form fields:
-text_description: string (optional)
-image: file (optional)
+{
+  "text_description": "String description of the product",
+  "image_base64": "Base64-encoded image data"
+}
 ```
 
 #### Live Price Search
 ```http
+POST /api/live-prices
+Content-Type: application/json
+
+{
+  "text_description": "String description of the product",
+  "image_base64": "Base64-encoded image data",
+  "extracted_data": {
+    "product_type": "string",
+    "brand": "string",
+    "color": "string",
+    "size": "string",
+    "material": "string",
+    "style": "string",
+    "category": "string",
+    "key_features": ["string"]
+  },
+  "max_results": 10,
+  "price_range_min": 0,
+  "price_range_max": 1000,
+  "include_price_stats": true
+}
+```
+
+#### Image-Based Product Search
+```http
+POST /api/image-search
+Content-Type: multipart/form-data
+
+image: [binary image data]
+max_results: 10
+```
+
+### Form-Based Endpoints
+
+#### Product Analysis (Form)
+```http
+POST /api/analyze-form
+Content-Type: multipart/form-data
+
+text_description: "String description of the product"
+image: [binary image data]
+```
+
+#### Live Price Search (Form)
+```http
 POST /api/live-prices-form
 Content-Type: multipart/form-data
 
-# Form fields:
-text_description: string (optional)
-image: file (optional)
-max_results: integer (default: 10)
-include_price_stats: boolean (default: true)
+text_description: "String description of the product"
+image: [binary image data]
+extracted_specifications: "{\"key\": \"value\"}"
+extracted_brand: "string"
+extracted_product_type: "string"
+...
+```
+
+#### Image-Based Product Search (Form)
+```http
+POST /api/image-search-form
+Content-Type: multipart/form-data
+
+image: [binary image data]
+max_results: 10
 ```
 
 #### Health Check

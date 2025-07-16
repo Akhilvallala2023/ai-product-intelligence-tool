@@ -3,7 +3,7 @@ import re
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from openai import AsyncOpenAI
-from backend.models import ProductFeatures, MatchedProduct
+from backend.models import ProductFeatures
 from backend.product_database import product_db
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
@@ -16,11 +16,20 @@ class AIProductProcessor:
         self.embeddings_cache = {}  # Cache for product embeddings
     
     async def extract_features_from_image(self, image_base64: str) -> ProductFeatures:
-        """Extract product features from image using OpenAI Vision API"""
+        """Extract product features from image using OpenAI Vision API with Google Lens-like capabilities
+        
+        This method uses a Google Lens-inspired approach:
+        1. Visual feature extraction - identifying shapes, patterns, colors, textures
+        2. Object recognition - identifying the exact product type and model
+        3. Text recognition - extracting visible text from the image
+        4. Contextual understanding - inferring specifications from visual cues
+        5. Comparative analysis - identifying distinctive features for matching
+        """
         try:
+            logger.info("Analyzing image using Google Lens-like visual processing...")
             return await self._process_image_openai(image_base64)
         except Exception as e:
-            logger.error(f"Error in image processing: {e}")
+            logger.error(f"Error in Google Lens-like image processing: {e}")
             raise e
     
     async def extract_features_from_text(self, text: str) -> ProductFeatures:
@@ -87,34 +96,53 @@ class AIProductProcessor:
             raise e
     
     async def _process_image_openai(self, image_base64: str) -> ProductFeatures:
-        """Process image using OpenAI Vision API"""
+        """Process image using OpenAI Vision API with Google Lens-like capabilities"""
         try:
             response = await self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are a product analyst. Analyze the product image and extract detailed information.
-                        Return a valid JSON object with these fields:
-                        - brand (string or null)
-                        - model (string or null)
-                        - product_type (string, required)
-                        - color (string or null)
-                        - size (string or null)
-                        - material (string or null)
-                        - style (string or null)
-                        - category (string, required)
-                        - key_features (array of strings)
-                        - specifications (object with key-value pairs)
+                        "content": """You are an advanced product image analyzer with capabilities similar to Google Lens. 
+                        Analyze the product image in detail by:
                         
-                        Only return the JSON object, no additional text."""
+                        1. VISUAL FEATURE EXTRACTION: Identify distinctive visual elements like shapes, patterns, colors, textures, and design elements.
+                        2. OBJECT RECOGNITION: Recognize the exact product type, model, and brand if visible.
+                        3. TEXT RECOGNITION: Extract any visible text in the image, including brand names, model numbers, specifications, and features.
+                        4. CONTEXTUAL UNDERSTANDING: Infer product specifications based on visual cues (e.g., material type from texture, size from proportions).
+                        5. COMPARATIVE ANALYSIS: Identify distinctive features that would help match this product with similar items.
+                        
+                        Return a comprehensive JSON object with these fields:
+                        - brand (string or null): Identify brand name from logos, text, or distinctive design elements
+                        - model (string or null): Extract model name/number if visible
+                        - product_type (string, required): Specific product type, be as precise as possible
+                        - color (string or null): Dominant and secondary colors, be specific (e.g., "brushed nickel" not just "silver")
+                        - size (string or null): Dimensions or size category if determinable
+                        - material (string or null): Main materials used in construction
+                        - style (string or null): Design style (modern, traditional, industrial, etc.)
+                        - category (string, required): Product category (lighting, furniture, electronics, etc.)
+                        - key_features (array of strings): 3-5 most distinctive visual or functional features
+                        - specifications (object): Detailed key-value pairs of specifications visible in the image or inferred from visual cues
+                          Include fields like:
+                          - "Light Source Type" (e.g., LED, incandescent)
+                          - "Power Source" (e.g., corded electric, battery)
+                          - "Indoor/Outdoor Usage"
+                          - "Special Feature" (e.g., dimmable, color changing)
+                          - "Installation Type" (e.g., flush mount, hanging)
+                          - "Theme" (e.g., modern, vintage)
+                          - "Light Color" (e.g., warm white, cool white)
+                          - "Shape" (e.g., round, square)
+                          - "Finish" (e.g., matte, glossy)
+                          - Any other visible or inferable specifications
+                        
+                        Only return the JSON object, no additional text. Be comprehensive and detailed in your analysis."""
                     },
                     {
                         "role": "user",
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Analyze this product image and extract detailed product information:"
+                                "text": "Analyze this product image like Google Lens would, extracting all visible details and specifications:"
                             },
                             {
                                 "type": "image_url",
@@ -125,8 +153,8 @@ class AIProductProcessor:
                         ]
                     }
                 ],
-                max_tokens=500,
-                temperature=0.3
+                max_tokens=800,
+                temperature=0.2
             )
             
             raw_response = response.choices[0].message.content
@@ -149,6 +177,20 @@ class AIProductProcessor:
                         features_json = json.loads(json_match.group())
                     else:
                         raise ValueError("Could not extract valid JSON from OpenAI response")
+            
+            # Ensure category is always set to prevent validation errors
+            if not features_json.get('category'):
+                # Try to infer category from product_type
+                product_type = features_json.get('product_type', '').lower()
+                if any(light_term in product_type for light_term in ['light', 'lamp', 'chandelier', 'bulb']):
+                    features_json['category'] = 'lighting'
+                elif any(furniture_term in product_type for furniture_term in ['chair', 'table', 'sofa', 'desk', 'bed']):
+                    features_json['category'] = 'furniture'
+                elif any(electronics_term in product_type for electronics_term in ['tv', 'phone', 'computer', 'laptop']):
+                    features_json['category'] = 'electronics'
+                else:
+                    # Default fallback
+                    features_json['category'] = 'home goods'
             
             # Create ProductFeatures object
             features = ProductFeatures(**features_json)
@@ -208,20 +250,20 @@ class AIProductProcessor:
             specs = []
             for key, value in product['specifications'].items():
                 specs.append(f"{key}: {value}")
-            if specs:
-                parts.append(f"Specifications: {', '.join(specs)}")
+            parts.append(f"Specifications: {', '.join(specs)}")
         
         # Add description
         if product.get('description'):
             parts.append(f"Description: {product['description']}")
         
-        return " | ".join(parts)
+        return " ".join(parts)
     
     def create_features_text(self, features: ProductFeatures) -> str:
-        """Create a text representation of extracted features for embedding"""
+        """Create a text representation of product features for embedding"""
         parts = []
         
-        parts.append(f"Type: {features.product_type}")
+        # Add basic info
+        parts.append(f"Product: {features.product_type}")
         parts.append(f"Category: {features.category}")
         
         if features.brand:
@@ -244,25 +286,33 @@ class AIProductProcessor:
             specs = []
             for key, value in features.specifications.items():
                 specs.append(f"{key}: {value}")
-            if specs:
-                parts.append(f"Specifications: {', '.join(specs)}")
+            parts.append(f"Specifications: {', '.join(specs)}")
         
-        return " | ".join(parts)
+        return " ".join(parts)
     
     def calculate_price_score(self, product_price: float, all_prices: List[float]) -> float:
-        """Calculate price competitiveness score (lower price = higher score)"""
+        """Calculate a price competitiveness score
+        
+        Lower prices get higher scores, with diminishing returns for extremely low prices
+        """
         if not all_prices:
-            return 0.5
+            return 0.5  # Default score if no comparison prices
         
-        min_price = min(all_prices)
         max_price = max(all_prices)
+        min_price = min(all_prices)
+        price_range = max_price - min_price
         
-        if min_price == max_price:
+        if price_range == 0:  # All prices are the same
             return 1.0
         
-        # Normalize price score (lower price gets higher score)
-        normalized_score = 1.0 - (product_price - min_price) / (max_price - min_price)
-        return max(0.0, min(1.0, normalized_score))
+        # Normalize price (0 = cheapest, 1 = most expensive)
+        normalized_price = (product_price - min_price) / price_range
+        
+        # Invert so lower prices get higher scores (0.5 to 1.0)
+        # Using a curve that gives diminishing returns for extremely low prices
+        price_score = 1.0 - (normalized_price ** 0.7) * 0.5
+        
+        return price_score
     
     async def find_similar_products(
         self, 
@@ -271,10 +321,10 @@ class AIProductProcessor:
         category_filter: Optional[str] = None,
         price_weight: float = 0.3,
         similarity_weight: float = 0.7
-    ) -> List[MatchedProduct]:
-        """Find similar products using embeddings and similarity scoring"""
+    ) -> List[Dict[str, Any]]:
+        """Find similar products based on input features"""
         try:
-            # Get all products
+            # Get all products from database
             all_products = product_db.get_all_products()
             
             # Apply category filter if specified
@@ -287,56 +337,59 @@ class AIProductProcessor:
             # Create text representation of input features
             input_text = self.create_features_text(input_features)
             
-            # Get input embedding
+            # Get embedding for input features
             input_embedding = await self.get_product_embedding(input_text)
             
-            # Get embeddings for all products
+            # Calculate embeddings and similarity scores for all products
             product_embeddings = []
             for product in all_products:
                 product_text = self.create_product_text(product)
-                embedding = await self.get_product_embedding(product_text)
-                product_embeddings.append(embedding)
+                product_embedding = await self.get_product_embedding(product_text)
+                product_embeddings.append(product_embedding)
             
-            # Calculate similarity scores
-            input_embedding_array = np.array(input_embedding).reshape(1, -1)
-            products_embedding_array = np.array(product_embeddings)
+            # Convert to numpy arrays for cosine similarity
+            input_embedding_np = np.array(input_embedding).reshape(1, -1)
+            product_embeddings_np = np.array(product_embeddings)
             
-            similarity_scores = cosine_similarity(input_embedding_array, products_embedding_array)[0]
+            # Calculate cosine similarity scores
+            similarity_scores = cosine_similarity(input_embedding_np, product_embeddings_np)[0]
             
-            # Calculate price scores
+            # Get all prices for price scoring
             all_prices = [p['price'] for p in all_products]
             
-            # Create matched products with scores
+            # Calculate combined scores
             matched_products = []
-            for i, (product, similarity_score) in enumerate(zip(all_products, similarity_scores)):
+            for i, product in enumerate(all_products):
+                similarity_score = float(similarity_scores[i])
                 price_score = self.calculate_price_score(product['price'], all_prices)
                 
-                # Combined score
-                combined_score = (similarity_weight * similarity_score) + (price_weight * price_score)
+                # Combined score with weighting
+                combined_score = (similarity_score * similarity_weight) + (price_score * price_weight)
                 
-                matched_product = MatchedProduct(
-                    id=product['id'],
-                    name=product['name'],
-                    price=product['price'],
-                    image_url=product['image_url'],
-                    category=product['category'],
-                    product_type=product['product_type'],
-                    brand=product.get('brand'),
-                    color=product.get('color'),
-                    size=product.get('size'),
-                    material=product.get('material'),
-                    style=product.get('style'),
-                    key_features=product.get('key_features', []),
-                    specifications=product.get('specifications', {}),
-                    description=product.get('description', ''),
-                    similarity_score=float(similarity_score),
-                    price_score=float(price_score),
-                    combined_score=float(combined_score)
-                )
+                # Create matched product object
+                matched_product = {
+                    "id": product['id'],
+                    "name": product['name'],
+                    "price": product['price'],
+                    "image_url": product['image_url'],
+                    "category": product['category'],
+                    "product_type": product['product_type'],
+                    "brand": product.get('brand'),
+                    "color": product.get('color'),
+                    "size": product.get('size'),
+                    "material": product.get('material'),
+                    "style": product.get('style'),
+                    "key_features": product.get('key_features', []),
+                    "specifications": product.get('specifications', {}),
+                    "description": product.get('description', ''),
+                    "similarity_score": similarity_score,
+                    "price_score": price_score,
+                    "combined_score": combined_score
+                }
                 matched_products.append(matched_product)
             
             # Sort by combined score (descending)
-            matched_products.sort(key=lambda x: x.combined_score, reverse=True)
+            matched_products.sort(key=lambda x: x['combined_score'], reverse=True)
             
             # Return top results
             return matched_products[:max_results]

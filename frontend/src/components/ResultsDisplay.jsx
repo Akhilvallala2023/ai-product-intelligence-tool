@@ -9,7 +9,12 @@ import {
   Info, 
   Eye,
   FileText,
-  Image
+  Image,
+  Zap,
+  Search,
+  Scan,
+  Layers,
+  Text
 } from 'lucide-react'
 
 const ResultsDisplay = ({ results, type = 'analysis' }) => {
@@ -47,16 +52,54 @@ const ResultsDisplay = ({ results, type = 'analysis' }) => {
     )
   }
 
+  // Group specifications into categories for better organization
+  const groupSpecifications = () => {
+    if (!features.specifications || Object.keys(features.specifications).length === 0) {
+      return {};
+    }
+
+    const groups = {
+      'Light Properties': ['Light Source Type', 'Light Color', 'Brightness', 'Wattage', 'Bulb Type'],
+      'Power & Installation': ['Power Source', 'Installation Type', 'Voltage', 'Connection Type'],
+      'Physical Properties': ['Shape', 'Finish', 'Dimensions', 'Weight', 'Material Type'],
+      'Features & Usage': ['Special Feature', 'Indoor/Outdoor Usage', 'Theme', 'Occasion', 'Compatibility'],
+      'Other': []
+    };
+
+    const result = {};
+    const processedKeys = new Set();
+
+    // First pass: assign specs to specific groups
+    Object.entries(features.specifications).forEach(([key, value]) => {
+      for (const [groupName, groupKeys] of Object.entries(groups)) {
+        if (groupKeys.some(groupKey => key.toLowerCase().includes(groupKey.toLowerCase()))) {
+          if (!result[groupName]) result[groupName] = {};
+          result[groupName][key] = value;
+          processedKeys.add(key);
+          break;
+        }
+      }
+    });
+
+    // Second pass: assign remaining specs to "Other"
+    Object.entries(features.specifications).forEach(([key, value]) => {
+      if (!processedKeys.has(key)) {
+        if (!result['Other']) result['Other'] = {};
+        result['Other'][key] = value;
+      }
+    });
+
+    return result;
+  };
+
+  const groupedSpecs = groupSpecifications();
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-3">
-          <Package className="w-6 h-6 text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-900">Extracted Features</h2>
-        </div>
+      <div className="flex items-center justify-end mb-6">
         <div className="flex items-center space-x-4">
           <div className={`px-3 py-1 rounded-full text-xs font-medium ${getConfidenceColor(confidence_score)}`}>
-            {getConfidenceLabel(confidence_score)} ({Math.round(confidence_score * 100)}%)
+            Confidence: {getConfidenceLabel(confidence_score)} ({Math.round(confidence_score * 100)}%)
           </div>
         </div>
       </div>
@@ -130,21 +173,31 @@ const ResultsDisplay = ({ results, type = 'analysis' }) => {
           </div>
         )}
 
-        {/* Specifications */}
-        {features.specifications && Object.keys(features.specifications).length > 0 && (
+        {/* Specifications - Grouped by category */}
+        {Object.keys(groupedSpecs).length > 0 && (
           <div className="bg-green-50 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+            <h3 className="text-sm font-medium text-gray-700 mb-4 flex items-center">
               <Info className="w-4 h-4 text-green-500 mr-2" />
-              Specifications
+              Detailed Specifications
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {Object.entries(features.specifications).map(([key, value]) => (
-                <div key={key} className="flex justify-between items-center bg-white rounded p-2">
-                  <span className="text-sm font-medium text-gray-600 capitalize">
-                    {key.replace(/_/g, ' ')}:
-                  </span>
-                  <span className="text-sm text-gray-900">{value}</span>
-                </div>
+            
+            <div className="space-y-4">
+              {Object.entries(groupedSpecs).map(([groupName, specs]) => (
+                Object.keys(specs).length > 0 && (
+                  <div key={groupName} className="bg-white rounded-lg p-3">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 border-b pb-2">{groupName}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {Object.entries(specs).map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-center p-1">
+                          <span className="text-sm font-medium text-gray-600 capitalize">
+                            {key.replace(/_/g, ' ')}:
+                          </span>
+                          <span className="text-sm text-gray-900 bg-gray-50 px-2 py-1 rounded">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
               ))}
             </div>
           </div>
@@ -156,7 +209,7 @@ const ResultsDisplay = ({ results, type = 'analysis' }) => {
           <p className="text-sm text-gray-600">
             Successfully extracted product features with {getConfidenceLabel(confidence_score).toLowerCase()} confidence 
             ({Math.round(confidence_score * 100)}%). 
-            Processing completed in {processing_time?.toFixed(2) || 'N/A'} seconds.
+            Processing time: {processing_time.toFixed(2)}s
           </p>
         </div>
       </div>
