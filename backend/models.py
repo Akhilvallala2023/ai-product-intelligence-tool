@@ -111,6 +111,7 @@ class LivePriceRequest(BaseModel):
     max_results: int = Field(10, description="Maximum number of results to return")
     price_range: Optional[List[float]] = Field(None, description="Price range filter [min, max]")
     include_price_stats: bool = Field(True, description="Whether to include price statistics")
+    extracted_data: Optional[Dict[str, Any]] = Field(None, description="Pre-extracted product data from analysis")
 
 # Enhanced response combining local and live results
 class CombinedProductResponse(BaseModel):

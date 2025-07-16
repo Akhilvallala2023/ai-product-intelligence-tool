@@ -16,11 +16,20 @@ class AIProductProcessor:
         self.embeddings_cache = {}  # Cache for product embeddings
     
     async def extract_features_from_image(self, image_base64: str) -> ProductFeatures:
-        """Extract product features from image using OpenAI Vision API"""
+        """Extract product features from image using OpenAI Vision API with Google Lens-like capabilities
+        
+        This method uses a Google Lens-inspired approach:
+        1. Visual feature extraction - identifying shapes, patterns, colors, textures
+        2. Object recognition - identifying the exact product type and model
+        3. Text recognition - extracting visible text from the image
+        4. Contextual understanding - inferring specifications from visual cues
+        5. Comparative analysis - identifying distinctive features for matching
+        """
         try:
+            logger.info("Analyzing image using Google Lens-like visual processing...")
             return await self._process_image_openai(image_base64)
         except Exception as e:
-            logger.error(f"Error in image processing: {e}")
+            logger.error(f"Error in Google Lens-like image processing: {e}")
             raise e
     
     async def extract_features_from_text(self, text: str) -> ProductFeatures:
@@ -87,34 +96,53 @@ class AIProductProcessor:
             raise e
     
     async def _process_image_openai(self, image_base64: str) -> ProductFeatures:
-        """Process image using OpenAI Vision API"""
+        """Process image using OpenAI Vision API with Google Lens-like capabilities"""
         try:
             response = await self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are a product analyst. Analyze the product image and extract detailed information.
-                        Return a valid JSON object with these fields:
-                        - brand (string or null)
-                        - model (string or null)
-                        - product_type (string, required)
-                        - color (string or null)
-                        - size (string or null)
-                        - material (string or null)
-                        - style (string or null)
-                        - category (string, required)
-                        - key_features (array of strings)
-                        - specifications (object with key-value pairs)
+                        "content": """You are an advanced product image analyzer with capabilities similar to Google Lens. 
+                        Analyze the product image in detail by:
                         
-                        Only return the JSON object, no additional text."""
+                        1. VISUAL FEATURE EXTRACTION: Identify distinctive visual elements like shapes, patterns, colors, textures, and design elements.
+                        2. OBJECT RECOGNITION: Recognize the exact product type, model, and brand if visible.
+                        3. TEXT RECOGNITION: Extract any visible text in the image, including brand names, model numbers, specifications, and features.
+                        4. CONTEXTUAL UNDERSTANDING: Infer product specifications based on visual cues (e.g., material type from texture, size from proportions).
+                        5. COMPARATIVE ANALYSIS: Identify distinctive features that would help match this product with similar items.
+                        
+                        Return a comprehensive JSON object with these fields:
+                        - brand (string or null): Identify brand name from logos, text, or distinctive design elements
+                        - model (string or null): Extract model name/number if visible
+                        - product_type (string, required): Specific product type, be as precise as possible
+                        - color (string or null): Dominant and secondary colors, be specific (e.g., "brushed nickel" not just "silver")
+                        - size (string or null): Dimensions or size category if determinable
+                        - material (string or null): Main materials used in construction
+                        - style (string or null): Design style (modern, traditional, industrial, etc.)
+                        - category (string, required): Product category (lighting, furniture, electronics, etc.)
+                        - key_features (array of strings): 3-5 most distinctive visual or functional features
+                        - specifications (object): Detailed key-value pairs of specifications visible in the image or inferred from visual cues
+                          Include fields like:
+                          - "Light Source Type" (e.g., LED, incandescent)
+                          - "Power Source" (e.g., corded electric, battery)
+                          - "Indoor/Outdoor Usage"
+                          - "Special Feature" (e.g., dimmable, color changing)
+                          - "Installation Type" (e.g., flush mount, hanging)
+                          - "Theme" (e.g., modern, vintage)
+                          - "Light Color" (e.g., warm white, cool white)
+                          - "Shape" (e.g., round, square)
+                          - "Finish" (e.g., matte, glossy)
+                          - Any other visible or inferable specifications
+                        
+                        Only return the JSON object, no additional text. Be comprehensive and detailed in your analysis."""
                     },
                     {
                         "role": "user",
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Analyze this product image and extract detailed product information:"
+                                "text": "Analyze this product image like Google Lens would, extracting all visible details and specifications:"
                             },
                             {
                                 "type": "image_url",
@@ -125,8 +153,8 @@ class AIProductProcessor:
                         ]
                     }
                 ],
-                max_tokens=500,
-                temperature=0.3
+                max_tokens=800,
+                temperature=0.2
             )
             
             raw_response = response.choices[0].message.content
@@ -149,6 +177,20 @@ class AIProductProcessor:
                         features_json = json.loads(json_match.group())
                     else:
                         raise ValueError("Could not extract valid JSON from OpenAI response")
+            
+            # Ensure category is always set to prevent validation errors
+            if not features_json.get('category'):
+                # Try to infer category from product_type
+                product_type = features_json.get('product_type', '').lower()
+                if any(light_term in product_type for light_term in ['light', 'lamp', 'chandelier', 'bulb']):
+                    features_json['category'] = 'lighting'
+                elif any(furniture_term in product_type for furniture_term in ['chair', 'table', 'sofa', 'desk', 'bed']):
+                    features_json['category'] = 'furniture'
+                elif any(electronics_term in product_type for electronics_term in ['tv', 'phone', 'computer', 'laptop']):
+                    features_json['category'] = 'electronics'
+                else:
+                    # Default fallback
+                    features_json['category'] = 'home goods'
             
             # Create ProductFeatures object
             features = ProductFeatures(**features_json)

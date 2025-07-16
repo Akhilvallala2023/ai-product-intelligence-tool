@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import base64
 from typing import Optional
+import json
 
 from backend.models import (
     ProductAnalysisRequest, 
@@ -281,26 +282,81 @@ async def get_live_prices(request: LivePriceRequest):
         # Extract features first
         features = None
         
-        if request.text_description and request.image_base64:
-            # Both text and image provided - combine results
-            text_features = await ai_processor.extract_features_from_text(request.text_description)
-            image_features = await ai_processor.extract_features_from_image(request.image_base64)
+        # Check if we have pre-extracted data from analysis
+        if request.extracted_data:
+            logger.info("Using pre-extracted data from analysis")
             
-            features = text_features
-            if image_features.color and not features.color:
-                features.color = image_features.color
-            if image_features.material and not features.material:
-                features.material = image_features.material
-            if image_features.style and not features.style:
-                features.style = image_features.style
+            # Create a ProductFeatures object from extracted data
+            extracted = request.extracted_data
+            features = ProductFeatures(
+                brand=extracted.get("brand"),
+                model=None,  # Not typically provided in extracted data
+                product_type=extracted.get("product_type"),
+                color=extracted.get("color"),
+                size=extracted.get("size"),
+                material=extracted.get("material"),
+                style=extracted.get("style"),
+                category=extracted.get("category") or "lighting",  # Default to "lighting" if category is None
+                key_features=extracted.get("key_features", []),
+                specifications=extracted.get("specifications", {})
+            )
+        
+        # If no pre-extracted features or they're incomplete, use AI extraction
+        if not features:
+            if request.text_description and request.image_base64:
+                # Both text and image provided - combine results
+                text_features = await ai_processor.extract_features_from_text(request.text_description)
+                image_features = await ai_processor.extract_features_from_image(request.image_base64)
+                
+                features = text_features
+                if image_features.color and not features.color:
+                    features.color = image_features.color
+                if image_features.material and not features.material:
+                    features.material = image_features.material
+                if image_features.style and not features.style:
+                    features.style = image_features.style
+                
+                if image_features.key_features:
+                    features.key_features = list(set(features.key_features + image_features.key_features))
+                
+            elif request.text_description:
+                features = await ai_processor.extract_features_from_text(request.text_description)
+            elif request.image_base64:
+                features = await ai_processor.extract_features_from_image(request.image_base64)
+        # If we have pre-extracted features but they're missing some fields, supplement with AI
+        elif request.text_description or request.image_base64:
+            # Check if key fields are missing
+            missing_key_fields = not features.product_type or len(features.key_features) == 0
             
-            if image_features.key_features:
-                features.key_features = list(set(features.key_features + image_features.key_features))
-            
-        elif request.text_description:
-            features = await ai_processor.extract_features_from_text(request.text_description)
-        elif request.image_base64:
-            features = await ai_processor.extract_features_from_image(request.image_base64)
+            if missing_key_fields:
+                logger.info("Supplementing pre-extracted features with AI extraction")
+                ai_features = None
+                
+                if request.text_description:
+                    ai_features = await ai_processor.extract_features_from_text(request.text_description)
+                elif request.image_base64:
+                    ai_features = await ai_processor.extract_features_from_image(request.image_base64)
+                
+                if ai_features:
+                    # Fill in missing fields
+                    if not features.product_type and ai_features.product_type:
+                        features.product_type = ai_features.product_type
+                    if not features.category and ai_features.category:
+                        features.category = ai_features.category
+                    if not features.brand and ai_features.brand:
+                        features.brand = ai_features.brand
+                    if not features.color and ai_features.color:
+                        features.color = ai_features.color
+                    if not features.size and ai_features.size:
+                        features.size = ai_features.size
+                    if not features.material and ai_features.material:
+                        features.material = ai_features.material
+                    if not features.style and ai_features.style:
+                        features.style = ai_features.style
+                    
+                    # Merge key features
+                    if ai_features.key_features:
+                        features.key_features = list(set(features.key_features + ai_features.key_features))
         
         # Get price comparison data
         price_data = await shopping_service.get_price_comparison(features)
@@ -469,7 +525,16 @@ async def get_live_prices_form(
     max_results: int = Form(10),
     price_range_min: Optional[float] = Form(None),
     price_range_max: Optional[float] = Form(None),
-    include_price_stats: bool = Form(True)
+    include_price_stats: bool = Form(True),
+    extracted_specifications: Optional[str] = Form(None),
+    extracted_brand: Optional[str] = Form(None),
+    extracted_product_type: Optional[str] = Form(None),
+    extracted_color: Optional[str] = Form(None),
+    extracted_size: Optional[str] = Form(None),
+    extracted_material: Optional[str] = Form(None),
+    extracted_style: Optional[str] = Form(None),
+    extracted_category: Optional[str] = Form(None),
+    extracted_key_features: Optional[str] = Form(None)
 ):
     """Get live prices from form data"""
     try:
@@ -490,13 +555,39 @@ async def get_live_prices_form(
         if price_range_min is not None and price_range_max is not None:
             price_range = [price_range_min, price_range_max]
         
+        # Parse extracted data if provided
+        extracted_specs_dict = {}
+        if extracted_specifications:
+            try:
+                extracted_specs_dict = json.loads(extracted_specifications)
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse extracted specifications: {extracted_specifications}")
+        
+        key_features_list = []
+        if extracted_key_features:
+            try:
+                key_features_list = json.loads(extracted_key_features)
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse extracted key features: {extracted_key_features}")
+        
         # Create request object
         request = LivePriceRequest(
             text_description=text_description,
             image_base64=image_base64,
             max_results=max_results,
             price_range=price_range,
-            include_price_stats=include_price_stats
+            include_price_stats=include_price_stats,
+            extracted_data={
+                "specifications": extracted_specs_dict,
+                "brand": extracted_brand,
+                "product_type": extracted_product_type,
+                "color": extracted_color,
+                "size": extracted_size,
+                "material": extracted_material,
+                "style": extracted_style,
+                "category": extracted_category,
+                "key_features": key_features_list
+            }
         )
         
         return await get_live_prices(request)

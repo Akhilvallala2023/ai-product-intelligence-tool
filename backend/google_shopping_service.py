@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class GoogleShoppingService:
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.location = "Austin, Texas, United States"
+        self.location = "Boca Raton, Florida, United States"
         self.language = "en"
         self.country = "us"
     
@@ -43,9 +43,61 @@ class GoogleShoppingService:
         if features.style and features.style.lower() not in ['standard', 'regular', 'basic']:
             query_parts.append(features.style)
         
-        # Add top 2 key features
+        # Add important specifications based on product category
+        if features.specifications:
+            # Define category-specific important specifications
+            category_specs = {
+                "lighting": [
+                    "Light Source Type", "Power Source", "Indoor/Outdoor Usage",
+                    "Special Feature", "Theme", "Light Color", "Installation Type"
+                ],
+                "furniture": [
+                    "Material Type", "Assembly Required", "Room Type", 
+                    "Weight Capacity", "Dimensions", "Finish Type"
+                ],
+                "electronics": [
+                    "Connectivity Technology", "Compatible Devices", "Screen Size",
+                    "Resolution", "Battery Life", "Operating System", "Storage Capacity"
+                ],
+                "appliances": [
+                    "Energy Efficiency", "Capacity", "Control Type",
+                    "Special Features", "Installation Type", "Power Source"
+                ],
+                "clothing": [
+                    "Material", "Fit Type", "Closure Type",
+                    "Season", "Pattern", "Occasion"
+                ],
+                "toys": [
+                    "Age Range", "Educational Objective", "Material",
+                    "Battery Required", "Theme", "Number of Pieces"
+                ],
+                "fans": [
+                    "Air Flow Capacity", "Power Source", "Speed Settings",
+                    "Control Type", "Indoor/Outdoor Usage", "Special Features",
+                    "Mounting Type", "Blade Material", "Room Size Coverage"
+                ]
+            }
+            
+            # Default specifications for any category
+            default_specs = [
+                "Special Feature", "Power Source", "Material", 
+                "Size", "Color", "Theme", "Style"
+            ]
+            
+            # Get the appropriate spec keys for this product's category
+            category = features.category.lower() if features.category else ""
+            important_spec_keys = category_specs.get(category, default_specs)
+            
+            for key in important_spec_keys:
+                if key in features.specifications and features.specifications[key]:
+                    spec_value = features.specifications[key]
+                    # Skip very common/generic values
+                    if spec_value.lower() not in ['standard', 'regular', 'basic', 'normal', 'default']:
+                        query_parts.append(spec_value)
+        
+        # Add top 3 key features (increased from 2)
         if features.key_features:
-            for feature in features.key_features[:2]:
+            for feature in features.key_features[:3]:
                 if len(feature) > 3 and feature.lower() not in ['durable', 'quality', 'good']:
                     query_parts.append(feature)
         
@@ -75,20 +127,20 @@ class GoogleShoppingService:
                 extracted_features.product_type or "",
                 shopping_result['title']
             )
-            score += title_score * 0.4
-            weight_sum += 0.4
+            score += title_score * 0.3  # Reduced from 0.4 to make room for specifications
+            weight_sum += 0.3
         
         # Brand matching (high weight)
         if extracted_features.brand and 'title' in shopping_result:
             brand_score = 1.0 if extracted_features.brand.lower() in shopping_result['title'].lower() else 0.0
-            score += brand_score * 0.3
-            weight_sum += 0.3
+            score += brand_score * 0.25  # Reduced from 0.3
+            weight_sum += 0.25
         
         # Color matching (medium weight)
         if extracted_features.color and 'title' in shopping_result:
             color_score = 1.0 if extracted_features.color.lower() in shopping_result['title'].lower() else 0.0
-            score += color_score * 0.15
-            weight_sum += 0.15
+            score += color_score * 0.1  # Reduced from 0.15
+            weight_sum += 0.1
         
         # Size matching (medium weight)
         if extracted_features.size and 'title' in shopping_result:
@@ -108,8 +160,29 @@ class GoogleShoppingService:
                     if size_score > 0:
                         break
             
-            score += size_score * 0.15
-            weight_sum += 0.15
+            score += size_score * 0.1  # Reduced from 0.15
+            weight_sum += 0.1
+        
+        # Specifications matching (new)
+        if extracted_features.specifications and 'title' in shopping_result:
+            spec_score = 0.0
+            spec_count = 0
+            
+            # Important specifications that would likely appear in product titles
+            important_specs = ["Light Source Type", "Power Source", "Special Feature", "Light Color", "Theme"]
+            
+            for spec_key in important_specs:
+                if spec_key in extracted_features.specifications:
+                    spec_value = extracted_features.specifications[spec_key]
+                    if spec_value and len(spec_value) > 2:
+                        spec_count += 1
+                        if spec_value.lower() in shopping_result['title'].lower():
+                            spec_score += 1.0
+            
+            if spec_count > 0:
+                final_spec_score = spec_score / spec_count
+                score += final_spec_score * 0.25  # High weight for specifications
+                weight_sum += 0.25
         
         # Normalize score
         if weight_sum > 0:

@@ -11,7 +11,8 @@ const ProductAnalyzer = () => {
   const [analysisResults, setAnalysisResults] = useState(null);
   const [livePriceResults, setLivePriceResults] = useState(null);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('analyze'); // 'analyze', 'prices'
+  const [activeTab, setActiveTab] = useState('prices'); // Changed default to 'prices'
+  const [extractionMethod, setExtractionMethod] = useState('both'); // 'image', 'text', 'both'
   const fileInputRef = useRef(null);
 
   const handleImageUpload = (e) => {
@@ -34,24 +35,24 @@ const ProductAnalyzer = () => {
     }
   };
 
-  const handleAnalyze = async () => {
-    if (!textInput.trim() && !imageFile) {
-      setError('Please provide either a text description or an image.');
-      return;
+  const analyzeInput = async () => {
+    if ((extractionMethod === 'text' || extractionMethod === 'both') && !textInput.trim() && 
+        (extractionMethod === 'image' || extractionMethod === 'both') && !imageFile) {
+      setError('Please provide input based on your selected extraction method.');
+      return null;
     }
 
     setIsAnalyzing(true);
     setError(null);
-    setAnalysisResults(null);
 
     try {
       const formData = new FormData();
       
-      if (textInput.trim()) {
+      if ((extractionMethod === 'text' || extractionMethod === 'both') && textInput.trim()) {
         formData.append('text_description', textInput.trim());
       }
       
-      if (imageFile) {
+      if ((extractionMethod === 'image' || extractionMethod === 'both') && imageFile) {
         formData.append('image', imageFile);
       }
 
@@ -64,39 +65,65 @@ const ProductAnalyzer = () => {
 
       if (result.success) {
         setAnalysisResults(result);
-        setActiveTab('analyze');
+        return result;
       } else {
         setError(result.error_message || 'Analysis failed');
+        return null;
       }
     } catch (err) {
       setError('Network error. Please check your connection and try again.');
       console.error('Analysis error:', err);
+      return null;
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-
-
   const handleGetLivePrices = async () => {
-    if (!textInput.trim() && !imageFile) {
-      setError('Please provide either a text description or an image.');
-      return;
-    }
-
     setIsGettingPrices(true);
     setError(null);
     setLivePriceResults(null);
 
     try {
+      // First analyze the input to extract features
+      const analysisResult = await analyzeInput();
+      
+      if (!analysisResult) {
+        // If analysis failed, stop here
+        setIsGettingPrices(false);
+        return;
+      }
+
       const formData = new FormData();
       
-      if (textInput.trim()) {
+      if ((extractionMethod === 'text' || extractionMethod === 'both') && textInput.trim()) {
         formData.append('text_description', textInput.trim());
       }
       
-      if (imageFile) {
+      if ((extractionMethod === 'image' || extractionMethod === 'both') && imageFile) {
         formData.append('image', imageFile);
+      }
+
+      // Include extracted features from analysis
+      if (analysisResult?.features?.specifications) {
+        formData.append('extracted_specifications', JSON.stringify(analysisResult.features.specifications));
+      }
+
+      // Include other extracted features
+      if (analysisResult?.features) {
+        const { brand, product_type, color, size, material, style, key_features, category } = analysisResult.features;
+        
+        if (brand) formData.append('extracted_brand', brand);
+        if (product_type) formData.append('extracted_product_type', product_type);
+        if (color) formData.append('extracted_color', color);
+        if (size) formData.append('extracted_size', size);
+        if (material) formData.append('extracted_material', material);
+        if (style) formData.append('extracted_style', style);
+        if (category) formData.append('extracted_category', category);
+        
+        if (key_features && key_features.length > 0) {
+          formData.append('extracted_key_features', JSON.stringify(key_features));
+        }
       }
 
       formData.append('max_results', '10');
@@ -124,8 +151,6 @@ const ProductAnalyzer = () => {
     }
   };
 
-
-
   const clearAll = () => {
     setTextInput('');
     setImageFile(null);
@@ -133,7 +158,7 @@ const ProductAnalyzer = () => {
     setAnalysisResults(null);
     setLivePriceResults(null);
     setError(null);
-    setActiveTab('analyze');
+    setActiveTab('prices');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -153,117 +178,141 @@ const ProductAnalyzer = () => {
         </div>
         
         <div className="space-y-6">
-          {/* Text Input */}
+          {/* Extraction Method Selector */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Product Description
+              Feature Extraction Method
             </label>
-            <textarea
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Describe the product you want to analyze (e.g., 'Outdoor string lights with warm white LED bulbs')"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows="3"
-            />
+            <select
+              value={extractionMethod}
+              onChange={(e) => setExtractionMethod(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="both">Both Text & Image</option>
+              <option value="text">Text Description Only</option>
+              <option value="image">Image Only</option>
+            </select>
           </div>
+
+          {/* Text Input */}
+          {(extractionMethod === 'text' || extractionMethod === 'both') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Product Description
+              </label>
+              <textarea
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Describe the product you want to analyze (e.g., 'Outdoor string lights with warm white LED bulbs')"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                rows="3"
+              />
+            </div>
+          )}
 
           {/* Image Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Product Image
-            </label>
-            <div className="flex items-start gap-4">
-              <div className="flex-1">
-                <div 
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-sm text-gray-600 mb-2">
-                    Click to upload or drag and drop
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    PNG, JPG, GIF up to 10MB
-                  </p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </div>
-              
-              {imagePreview && (
-                <div className="relative">
-                  <img 
-                    src={imagePreview} 
-                    alt="Preview" 
-                    className="w-32 h-32 object-cover rounded-lg border border-gray-300"
-                  />
-                  <button
-                    onClick={removeImage}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+          {(extractionMethod === 'image' || extractionMethod === 'both') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Product Image
+              </label>
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    <X className="h-4 w-4" />
-                  </button>
+                    <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <p className="text-sm text-gray-600 mb-2">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      PNG, JPG, GIF up to 10MB
+                    </p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
                 </div>
-              )}
+                
+                {imagePreview && (
+                  <div className="relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="w-32 h-32 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      onClick={removeImage}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <button
-              onClick={handleAnalyze}
-              disabled={isLoading}
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-            >
-              <Search className="h-4 w-4" />
-              {isAnalyzing ? 'Analyzing...' : 'Analyze'}
-            </button>
-            
+          <div className="grid grid-cols-1 gap-3">
             <button
               onClick={handleGetLivePrices}
               disabled={isLoading}
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
             >
-              <Globe className="h-4 w-4" />
-              {isGettingPrices ? 'Searching...' : 'Get Live Prices'}
+              {isAnalyzing ? (
+                <>
+                  <Search className="h-4 w-4 animate-pulse" />
+                  Analyzing...
+                </>
+              ) : isGettingPrices ? (
+                <>
+                  <DollarSign className="h-4 w-4 animate-pulse" />
+                  Finding Products...
+                </>
+              ) : (
+                <>
+                  <DollarSign className="h-4 w-4" />
+                  Find Similar Products
+                </>
+              )}
             </button>
           </div>
-
-          <button
-            onClick={clearAll}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <X className="h-5 w-5" />
-            Clear All
-          </button>
+          
+          {/* Clear Button */}
+          <div className="text-center">
+            <button
+              onClick={clearAll}
+              disabled={isLoading}
+              className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Clear All
+            </button>
+          </div>
+          
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center gap-2">
-            <X className="h-5 w-5 text-red-500" />
-            <p className="text-red-700">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Results Tabs */}
+      
+      {/* Results Section */}
       {(analysisResults || livePriceResults) && (
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
+          <div className="flex border-b mb-6">
             <button
               onClick={() => setActiveTab('analyze')}
-              className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`px-4 py-2 text-sm font-medium ${
                 activeTab === 'analyze'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -271,20 +320,20 @@ const ProductAnalyzer = () => {
             </button>
             <button
               onClick={() => setActiveTab('prices')}
-              className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`px-4 py-2 text-sm font-medium ${
                 activeTab === 'prices'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              Live Prices
+              Similar Products
             </button>
           </div>
-
+          
           {activeTab === 'analyze' && analysisResults && (
             <ResultsDisplay results={analysisResults} type="analysis" />
           )}
-
+          
           {activeTab === 'prices' && livePriceResults && (
             <LivePriceResults results={livePriceResults} />
           )}
@@ -313,28 +362,59 @@ const LivePriceResults = ({ results }) => {
             <span className="ml-2 text-gray-600">"{search_query}"</span>
           </div>
           {input_features && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <span className="font-medium text-gray-700">Type:</span>
-                <span className="ml-2 text-gray-600">{input_features.product_type}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Category:</span>
-                <span className="ml-2 text-gray-600">{input_features.category}</span>
-              </div>
-              {input_features.brand && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <span className="font-medium text-gray-700">Brand:</span>
-                  <span className="ml-2 text-gray-600">{input_features.brand}</span>
+                  <span className="font-medium text-gray-700">Type:</span>
+                  <span className="ml-2 text-gray-600">{input_features.product_type}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Category:</span>
+                  <span className="ml-2 text-gray-600">{input_features.category}</span>
+                </div>
+                {input_features.brand && (
+                  <div>
+                    <span className="font-medium text-gray-700">Brand:</span>
+                    <span className="ml-2 text-gray-600">{input_features.brand}</span>
+                  </div>
+                )}
+                {input_features.color && (
+                  <div>
+                    <span className="font-medium text-gray-700">Color:</span>
+                    <span className="ml-2 text-gray-600">{input_features.color}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Display specifications if available */}
+              {input_features.specifications && Object.keys(input_features.specifications).length > 0 && (
+                <div className="mt-3 pt-3 border-t border-purple-200">
+                  <h4 className="font-medium text-gray-700 mb-2">Specifications Used:</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {Object.entries(input_features.specifications).map(([key, value]) => (
+                      <div key={key} className="bg-white rounded-md p-2 text-xs">
+                        <span className="font-medium text-gray-700">{key}:</span>
+                        <span className="ml-1 text-gray-600">{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-              {input_features.color && (
-                <div>
-                  <span className="font-medium text-gray-700">Color:</span>
-                  <span className="ml-2 text-gray-600">{input_features.color}</span>
+              
+              {/* Display key features if available */}
+              {input_features.key_features && input_features.key_features.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-purple-200">
+                  <h4 className="font-medium text-gray-700 mb-2">Key Features Used:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {input_features.key_features.map((feature, index) => (
+                      <span key={index} className="bg-white rounded-full px-3 py-1 text-xs text-purple-700 border border-purple-200">
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
