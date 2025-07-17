@@ -52,16 +52,25 @@ async def lifespan(app: FastAPI):
         pass
 
 app = FastAPI(
-    title="AI Product Intelligence Tool",
-    description="Multi-modal product analysis, matching, and live price aggregation system",
-    version="2.0.0",
-    lifespan=lifespan
+    title="AI Product Intelligence API",
+    description="API for analyzing products and finding live prices",
+    version="1.0.0"
 )
 
-# Add CORS middleware
+# Add CORS middleware to allow requests from Netlify and other domains
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174", 
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:5177",
+        "https://idyllic-sorbet-caaa3d.netlify.app",
+        "https://*.netlify.app",
+        "https://*.render.com",
+        "https://*.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
