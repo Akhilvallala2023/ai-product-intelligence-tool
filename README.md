@@ -484,6 +484,61 @@ python -m pytest tests/
 - [ ] **Database Integration**: PostgreSQL/MongoDB support
 - [ ] **Webhook Integrations**: Real-time notifications and integrations
 
+## 🚀 Deployment
+
+### Frontend Deployment (Netlify)
+
+1. **Build the Frontend**
+```bash
+cd frontend
+npm run build
+```
+
+2. **Deploy to Netlify**
+   - Connect your GitHub repository to Netlify
+   - Set build command: `npm run build`
+   - Set publish directory: `dist`
+
+3. **Configure Environment Variables**
+   - Go to Site Settings > Environment Variables
+   - Add `VITE_API_URL` with your backend URL
+   - Add `VITE_DEV_MODE` set to `false`
+
+### Backend Deployment (Render)
+
+1. **Create Render Account**
+   - Sign up at [render.com](https://render.com)
+
+2. **Deploy Backend Service**
+   - Create new Web Service
+   - Connect your GitHub repository
+   - Set build command: `pip install -r requirements.txt`
+   - Set start command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+
+3. **Configure Environment Variables**
+   - Add `OPENAI_API_KEY`
+   - Add `GOOGLE_SHOPPING_API_KEY`
+
+4. **Update Frontend API URL**
+   - Copy your Render service URL
+   - Update `VITE_API_URL` in Netlify environment variables
+
+### Alternative Backend Hosting
+
+- **Railway**: Similar to Render, good for Python apps
+- **Heroku**: Classic choice, requires Procfile
+- **DigitalOcean App Platform**: Scalable and reliable
+- **AWS/GCP**: For enterprise deployments
+
+### Environment Variables Reference
+
+| Service | Variable | Description |
+|---------|----------|-------------|
+| Frontend | `VITE_API_URL` | Backend API base URL |
+| Frontend | `VITE_DEV_MODE` | Development mode flag |
+| Backend | `OPENAI_API_KEY` | OpenAI API key |
+| Backend | `GOOGLE_SHOPPING_API_KEY` | SerpAPI key |
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.

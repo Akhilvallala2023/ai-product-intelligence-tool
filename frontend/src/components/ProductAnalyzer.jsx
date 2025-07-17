@@ -2,6 +2,9 @@ import React, { useState, useRef } from 'react';
 import { Upload, X, Search, Zap, Star, DollarSign, Globe, ExternalLink, Settings, Filter, Check, ChevronRight, Image as ImageIcon } from 'lucide-react';
 import ResultsDisplay from './ResultsDisplay';
 
+// API Configuration
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 const ProductAnalyzer = () => {
   const [textInput, setTextInput] = useState('');
   const [imageFile, setImageFile] = useState(null);
@@ -63,7 +66,7 @@ const ProductAnalyzer = () => {
         formData.append('image', imageFile);
       }
 
-      const response = await fetch('/api/analyze-form', {
+      const response = await fetch(`${BASE_URL}/api/analyze-form`, {
         method: 'POST',
         body: formData,
       });
@@ -138,7 +141,7 @@ const ProductAnalyzer = () => {
 
       console.log('Sending live prices request with form data');
       
-      const response = await fetch('/api/live-prices-form', {
+      const response = await fetch(`${BASE_URL}/api/live-prices-form`, {
         method: 'POST',
         body: formData,
       });
@@ -194,7 +197,7 @@ const ProductAnalyzer = () => {
       formData.append('image', imageFile);
       formData.append('max_results', '10');
 
-      const response = await fetch('/api/image-search-form', {
+      const response = await fetch(`${BASE_URL}/api/image-search-form`, {
         method: 'POST',
         body: formData,
       });
